@@ -1,0 +1,45 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    @apply bg-white text-[#111111] antialiased;
+  }
+
+  /* Remove default focus ring, replace with a clean one */
+  :focus-visible {
+    @apply outline-none ring-2 ring-[#111111] ring-offset-2;
+  }
+}
+
+@keyframes flash-in-out {
+  0%   { opacity: 0.55 }
+  100% { opacity: 0 }
+}
+.animate-flash {
+  animation: flash-in-out 0.6s ease-out forwards;
+}
+
+@layer utilities {
+  /* Status badge base — outlined, no solid fill */
+  .badge {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-0.5 text-xs font-medium rounded-md border;
+  }
+
+  .badge-pending {
+    @apply badge border-warning text-warning;
+  }
+
+  .badge-verified {
+    @apply badge border-success text-success;
+  }
+
+  .badge-rejected {
+    @apply badge border-error text-error;
+  }
+}

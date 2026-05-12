@@ -1,0 +1,118 @@
+'use client'
+
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+import { signOut } from '@/app/auth/login/actions'
+import { cn } from '@/lib/utils'
+import type { StaffUser } from '@/lib/types/database'
+
+interface NavItem {
+  label: string
+  href: string
+  icon: React.ReactNode
+}
+
+const iconRegistrations = (
+  <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25z" />
+  </svg>
+)
+
+const iconScanner = (
+  <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zm0 9.75c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zm9.75-9.75c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 6.75h.75v.75h-.75v-.75zm0 9.75h.75v.75h-.75v-.75zm9.75-9.75h.75v.75h-.75v-.75zm-3 6.75h3.75m-3.75 0v3.75m0-3.75h.75v.75h-.75v-.75zm2.25 3h.75v-.75h-.75v.75zm.75 0v-.75h.75v.75h-.75z" />
+  </svg>
+)
+
+const iconEvents = (
+  <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+  </svg>
+)
+
+const iconStaff = (
+  <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
+  </svg>
+)
+
+const iconSignOut = (
+  <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
+  </svg>
+)
+
+interface Props {
+  staff: StaffUser
+}
+
+export default function Sidebar({ staff }: Props) {
+  const pathname = usePathname()
+  const isSuperAdmin = staff.role === 'super_admin'
+  const canScan = ['super_admin', 'admin', 'scanner'].includes(staff.role)
+  const canViewRegistrations = staff.role !== 'scanner'
+
+  const navItems: NavItem[] = [
+    ...(canViewRegistrations
+      ? [{ label: 'Registrations', href: '/dashboard/registrations', icon: iconRegistrations }]
+      : []),
+    ...(canScan
+      ? [{ label: 'Scanner', href: '/scan', icon: iconScanner }]
+      : []),
+    ...(isSuperAdmin
+      ? [
+          { label: 'Events', href: '/dashboard/events', icon: iconEvents },
+          { label: 'Staff', href: '/dashboard/staff', icon: iconStaff },
+        ]
+      : []),
+  ]
+
+  return (
+    <aside className="fixed inset-y-0 left-0 z-30 flex w-64 flex-col border-r border-[#E5E5E5] bg-white">
+      {/* Brand */}
+      <div className="flex h-16 items-center border-b border-[#E5E5E5] px-6">
+        <span className="text-sm font-semibold text-[#111111]">GMS Events</span>
+      </div>
+
+      {/* Nav */}
+      <nav className="flex-1 space-y-0.5 px-3 py-4">
+        {navItems.map((item) => {
+          const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                'flex items-center gap-3 rounded-btn px-3 py-2 text-sm transition-colors',
+                isActive
+                  ? 'bg-[#111111] text-white'
+                  : 'text-muted hover:bg-[#f5f5f5] hover:text-[#111111]'
+              )}
+            >
+              {item.icon}
+              {item.label}
+            </Link>
+          )
+        })}
+      </nav>
+
+      {/* User + sign out */}
+      <div className="border-t border-[#E5E5E5] px-3 py-4 space-y-1">
+        <div className="px-3 py-2">
+          <p className="text-xs font-medium text-[#111111] truncate">{staff.email}</p>
+          <p className="text-xs text-muted capitalize">{staff.role.replace('_', ' ')}</p>
+        </div>
+        <form action={signOut}>
+          <button
+            type="submit"
+            className="flex w-full items-center gap-3 rounded-btn px-3 py-2 text-sm text-muted transition-colors hover:bg-[#f5f5f5] hover:text-[#111111]"
+          >
+            {iconSignOut}
+            Sign Out
+          </button>
+        </form>
+      </div>
+    </aside>
+  )
+}

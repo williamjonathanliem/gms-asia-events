@@ -1,0 +1,176 @@
+'use server'
+
+import { createServiceClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+import { STORAGE_BUCKET } from '@/lib/constants'
+import { sendConfirmationEmail } from '@/lib/email'
+import type { CustomField } from '@/lib/types/database'
+
+export type RegisterFormState = {
+  error?: string
+  fieldErrors?: Partial<Record<string, string>>
+}
+
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+const MAX_FILE_SIZE = 5 * 1024 * 1024
+
+export async function submitRegistration(
+  _prev: RegisterFormState,
+  formData: FormData
+): Promise<RegisterFormState> {
+  const full_name = (formData.get('full_name') as string)?.trim()
+  const email = (formData.get('email') as string)?.trim().toLowerCase()
+  const phone = (formData.get('phone') as string)?.trim() || null
+  const gms_church = formData.get('gms_church') as string
+  const nij = (formData.get('nij') as string)?.trim() || null
+  const package_id = formData.get('package_id') as string
+  const event_id = formData.get('event_id') as string
+  const file = formData.get('payment_screenshot')
+
+  // ── Core validation ──────────────────────────────────────────
+  const fieldErrors: Record<string, string> = {}
+
+  if (!full_name) fieldErrors.full_name = 'Full name is required'
+
+  if (!email) {
+    fieldErrors.email = 'Email is required'
+  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    fieldErrors.email = 'Please enter a valid email address'
+  }
+
+  if (!gms_church) fieldErrors.gms_church = 'Please select your church branch'
+
+  if (!(file instanceof File) || file.size === 0) {
+    fieldErrors.payment_screenshot = 'Payment screenshot is required'
+  } else if (file.size > MAX_FILE_SIZE) {
+    fieldErrors.payment_screenshot = 'File must be under 5 MB'
+  } else if (!ALLOWED_TYPES.includes(file.type)) {
+    fieldErrors.payment_screenshot = 'Only JPG, PNG, or WebP images are accepted'
+  }
+
+  // ── Custom field validation ───────────────────────────────────
+  const supabase = createServiceClient()
+
+  const { data: eventData } = await supabase
+    .from('events')
+    .select('custom_fields, registration_open')
+    .eq('id', event_id)
+    .single()
+
+  if (!eventData?.registration_open) {
+    return { error: 'Registration for this event is closed.' }
+  }
+
+  // Validate package_id only when the event has packages
+  const { count: pkgCount } = await supabase
+    .from('packages')
+    .select('id', { count: 'exact', head: true })
+    .eq('event_id', event_id)
+
+  if ((pkgCount ?? 0) > 0 && !package_id) {
+    fieldErrors.package_id = 'Please select a package'
+  }
+
+  const customFields: CustomField[] = (eventData?.custom_fields ?? []) as CustomField[]
+  const custom_answers: Record<string, string | boolean> = {}
+
+  for (const field of customFields) {
+    const key = `custom_${field.id}`
+    if (field.type === 'checkbox') {
+      custom_answers[field.id] = formData.get(key) === 'on'
+      // checkboxes are not required in the traditional sense
+    } else {
+      const value = ((formData.get(key) as string) ?? '').trim()
+      custom_answers[field.id] = value
+      if (field.required && !value) {
+        fieldErrors[key] = `${field.label} is required`
+      }
+    }
+  }
+
+  if (Object.keys(fieldErrors).length > 0) return { fieldErrors }
+
+  // ── Duplicate email check ────────────────────────────────────
+  const { data: existing } = await supabase
+    .from('registrations')
+    .select('id')
+    .eq('event_id', event_id)
+    .eq('email', email)
+    .maybeSingle()
+
+  if (existing) {
+    return { fieldErrors: { email: 'This email is already registered for this event' } }
+  }
+
+  // ── Insert registration ──────────────────────────────────────
+  const { data: registration, error: insertError } = await supabase
+    .from('registrations')
+    .insert({
+      event_id,
+      full_name,
+      email,
+      phone,
+      gms_church,
+      nij,
+      package_id: package_id || null,
+      payment_status: 'pending',
+      custom_answers,
+    })
+    .select('id, qr_token')
+    .single()
+
+  if (insertError || !registration) {
+    if (insertError?.code === '23505') {
+      return { fieldErrors: { email: 'This email is already registered for this event' } }
+    }
+    return { error: 'Registration failed. Please try again.' }
+  }
+
+  // ── Upload screenshot ────────────────────────────────────────
+  if (!(file instanceof File)) {
+    await supabase.from('registrations').delete().eq('id', registration.id)
+    return { error: 'Failed to process file. Please try again.' }
+  }
+
+  const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg'
+  const storagePath = `${event_id}/${registration.id}/payment.${ext}`
+  const bytes = new Uint8Array(await file.arrayBuffer())
+
+  const { error: uploadError } = await supabase.storage
+    .from(STORAGE_BUCKET)
+    .upload(storagePath, bytes, { contentType: file.type, upsert: false })
+
+  if (uploadError) {
+    console.error('[storage upload error]', uploadError)
+    await supabase.from('registrations').delete().eq('id', registration.id)
+    return { error: `Upload failed: ${uploadError.message}` }
+  }
+
+  await supabase
+    .from('registrations')
+    .update({ payment_screenshot_url: storagePath })
+    .eq('id', registration.id)
+
+  // ── Send confirmation email (non-fatal) ──────────────────────
+  const { data: fullReg } = await supabase
+    .from('registrations')
+    .select('full_name, email, gms_church, nij, qr_token, packages(name, price, toolkit_items), events(name, date, location)')
+    .eq('id', registration.id)
+    .single()
+
+  if (fullReg?.packages && fullReg?.events) {
+    try {
+      const pkg = fullReg.packages as unknown as { name: string; price: number; toolkit_items: string[] }
+      const evt = fullReg.events as unknown as { name: string; date: string; location: string }
+      await sendConfirmationEmail(
+        { full_name: fullReg.full_name, email: fullReg.email, gms_church: fullReg.gms_church, nij: fullReg.nij, qr_token: fullReg.qr_token },
+        pkg,
+        evt
+      )
+    } catch (emailErr) {
+      console.error('[email error]', emailErr)
+    }
+  }
+
+  redirect(`/register/success?id=${registration.id}`)
+}
