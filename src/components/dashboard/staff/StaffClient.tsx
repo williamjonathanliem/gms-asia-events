@@ -206,7 +206,7 @@ function StaffDrawer({
             </Label>
             <ScopeSelect value={scope} onChange={setScope} events={events} />
             <p className="mt-1.5 text-xs text-muted">
-              Limit this member to one event's data. Leave as "All Events" for unrestricted access.
+              {`Limit this member to one event's data. Leave as "All Events" for unrestricted access.`}
             </p>
           </div>
         </div>

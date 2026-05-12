@@ -398,7 +398,7 @@ export default function CustomFieldsBuilder({ eventId, fields, onChange }: Props
       {/* Save fields after adding/editing */}
       {fields.length > 0 && (showAdd || editingField) && (
         <p className="text-xs text-center text-muted">
-          Click "Save Order &amp; Fields" after finishing all edits.
+          {`Click "Save Order & Fields" after finishing all edits.`}
         </p>
       )}
     </div>
