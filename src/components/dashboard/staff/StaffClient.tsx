@@ -326,8 +326,8 @@ export default function StaffClient({ initialStaff, events, currentUserId }: Pro
           <p className="text-sm text-muted">No staff members yet.</p>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-lg border border-[#E5E5E5]">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto rounded-lg border border-[#E5E5E5]">
+          <table className="w-full min-w-[560px] text-sm">
             <thead>
               <tr className="border-b border-[#E5E5E5] bg-[#fafafa]">
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-widest text-muted">Email</th>

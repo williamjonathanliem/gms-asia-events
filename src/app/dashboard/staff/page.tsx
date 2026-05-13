@@ -26,13 +26,13 @@ export default async function StaffPage() {
 
   return (
     <div className="min-h-screen">
-      <div className="border-b border-[#E5E5E5] px-8 py-6">
+      <div className="border-b border-[#E5E5E5] px-4 py-5 sm:px-8 sm:py-6">
         <h1 className="text-xl font-semibold text-[#111111]">Staff</h1>
         <p className="mt-1 text-sm text-muted">
           Invite staff members and manage their roles and event access
         </p>
       </div>
-      <div className="px-8 py-6">
+      <div className="px-4 py-5 sm:px-8 sm:py-6">
         <StaffClient
           initialStaff={(staffList ?? []) as StaffUser[]}
           events={(events ?? []) as Pick<Event, 'id' | 'name' | 'date'>[]}

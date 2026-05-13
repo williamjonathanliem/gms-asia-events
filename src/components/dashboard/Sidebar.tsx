@@ -72,7 +72,8 @@ export default function Sidebar({ staff }: Props) {
     <aside className="fixed inset-y-0 left-0 z-30 flex w-64 flex-col border-r border-[#E5E5E5] bg-white">
       {/* Brand */}
       <div className="flex h-16 items-center border-b border-[#E5E5E5] px-6">
-        <span className="text-sm font-semibold text-[#111111]">GMS Events</span>
+        <span className="flex-1 text-sm font-semibold text-[#111111]">GMS Events</span>
+        {/* Close button shown only on mobile via CSS in DashboardShell */}
       </div>
 
       {/* Nav */}

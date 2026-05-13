@@ -3,10 +3,13 @@ import { getCurrentStaffUser } from '@/lib/supabase/auth'
 import StatCards from '@/components/dashboard/StatCards'
 import SearchFilters from '@/components/dashboard/registrations/SearchFilters'
 import RegistrationsClient from '@/components/dashboard/registrations/RegistrationsClient'
+import ExportButton from '@/components/dashboard/registrations/ExportButton'
+import WalkinDrawerWrapper from '@/components/dashboard/registrations/WalkinDrawerWrapper'
+import RegistrationsSkeleton from '@/components/dashboard/registrations/RegistrationsSkeleton'
 import { formatDate } from '@/lib/utils'
 import { Suspense } from 'react'
 import type { Metadata } from 'next'
-import type { PaymentStatus } from '@/lib/types/database'
+import type { PaymentStatus, Package } from '@/lib/types/database'
 
 export const metadata: Metadata = { title: 'Registrations' }
 
@@ -141,6 +144,12 @@ export default async function RegistrationsPage({
 
   // Package filter: match by package name (A/B/C) via nested filter
   // We filter after fetch since Supabase can't filter on a joined column directly
+  // Packages for walk-in drawer
+  const { data: packagesData } = filterEventId
+    ? await supabase.from('packages').select('*').eq('event_id', filterEventId).order('price', { ascending: false })
+    : { data: [] }
+  const packages = (packagesData ?? []) as Package[]
+
   const { data: rawData, count } = await query
 
   let registrations = (rawData ?? []) as any[]
@@ -154,15 +163,27 @@ export default async function RegistrationsPage({
   return (
     <div className="min-h-screen">
       {/* Header */}
-      <div className="border-b border-[#E5E5E5] px-8 py-6">
-        <p className="text-xs font-medium uppercase tracking-widest text-muted">
-          {headerTitle}
-          {headerDate ? ` · ${formatDate(headerDate)}` : ''}
-        </p>
-        <h1 className="mt-1 text-xl font-semibold text-[#111111]">Registrations</h1>
+      <div className="border-b border-[#E5E5E5] px-4 py-5 sm:px-8 sm:py-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-widest text-muted">
+              {headerTitle}
+              {headerDate ? ` · ${formatDate(headerDate)}` : ''}
+            </p>
+            <h1 className="mt-1 text-xl font-semibold text-[#111111]">Registrations</h1>
+          </div>
+          <div className="flex shrink-0 items-center gap-2 pt-1">
+            <Suspense>
+              <ExportButton eventId={filterEventId} />
+            </Suspense>
+            {filterEventId && ['super_admin', 'admin'].includes(staff?.role ?? '') && (
+              <WalkinDrawerWrapper eventId={filterEventId} packages={packages} />
+            )}
+          </div>
+        </div>
       </div>
 
-      <div className="px-8 py-6 space-y-6">
+      <div className="px-4 py-5 space-y-6 sm:px-8 sm:py-6">
         {/* Stat cards */}
         {queryAllEvents ? (
           <p className="text-sm text-muted">
@@ -197,7 +218,7 @@ export default async function RegistrationsPage({
         </p>
 
         {/* Table */}
-        <Suspense fallback={<div className="h-48 rounded-lg border border-[#E5E5E5] animate-pulse bg-[#fafafa]" />}>
+        <Suspense fallback={<RegistrationsSkeleton />}>
           <RegistrationsClient
             registrations={registrations}
             total={count ?? 0}

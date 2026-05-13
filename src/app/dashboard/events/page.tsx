@@ -21,13 +21,13 @@ export default async function EventsPage() {
 
   return (
     <div className="min-h-screen">
-      <div className="border-b border-[#E5E5E5] px-8 py-6">
+      <div className="border-b border-[#E5E5E5] px-4 py-5 sm:px-8 sm:py-6">
         <h1 className="text-xl font-semibold text-[#111111]">Events</h1>
         <p className="mt-1 text-sm text-muted">
           Manage events, packages, and registration form fields
         </p>
       </div>
-      <div className="px-8 py-6">
+      <div className="px-4 py-5 sm:px-8 sm:py-6">
         <EventsClient initialEvents={events} />
       </div>
     </div>

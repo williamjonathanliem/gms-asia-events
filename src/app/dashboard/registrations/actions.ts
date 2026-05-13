@@ -8,6 +8,84 @@ import QRCode from 'qrcode'
 import { STORAGE_BUCKET } from '@/lib/constants'
 import type { PaymentStatus } from '@/lib/types/database'
 
+// ── CSV export ────────────────────────────────────────────────
+export async function exportRegistrations(filters: {
+  eventId?: string | null
+  search?: string
+  status?: string
+  church?: string
+  package?: string
+}): Promise<{ csv?: string; error?: string }> {
+  const staff = await getCurrentStaffUser()
+  if (!staff) return { error: 'Unauthorised' }
+
+  const supabase = createServiceClient()
+
+  let query = supabase
+    .from('registrations')
+    .select(
+      `full_name, email, phone, gms_church, nij,
+       payment_status, payment_notes, qr_token, created_at,
+       packages(name, price),
+       events(name),
+       attendance_logs(scan_type)`
+    )
+    .order('created_at', { ascending: false })
+
+  if (filters.eventId) query = query.eq('event_id', filters.eventId)
+  if (staff.event_scope)  query = query.eq('event_id', staff.event_scope)
+
+  if (filters.search) {
+    const q = filters.search
+    query = query.or(
+      `full_name.ilike.%${q}%,email.ilike.%${q}%,nij.ilike.%${q}%,gms_church.ilike.%${q}%`
+    )
+  }
+  if (filters.status) query = query.eq('payment_status', filters.status as PaymentStatus)
+  if (filters.church) query = query.eq('gms_church', filters.church)
+
+  const { data, error } = await query
+  if (error) return { error: error.message }
+
+  let rows = (data ?? []) as any[]
+  if (filters.package) {
+    rows = rows.filter((r) => r.packages?.name === filters.package)
+  }
+
+  const escape = (v: unknown) => {
+    const s = v == null ? '' : String(v)
+    return s.includes(',') || s.includes('"') || s.includes('\n')
+      ? `"${s.replace(/"/g, '""')}"`
+      : s
+  }
+
+  const headers = [
+    'Full Name', 'Email', 'Phone', 'Church', 'NIJ',
+    'Package', 'Price (IDR)', 'Payment Status', 'Payment Notes',
+    'Toolkit Collected', 'Event Attended', 'Registered At',
+  ]
+
+  const csvRows = rows.map((r) => {
+    const logs: string[] = (r.attendance_logs ?? []).map((l: any) => l.scan_type)
+    return [
+      r.full_name,
+      r.email,
+      r.phone ?? '',
+      r.gms_church,
+      r.nij ?? '',
+      r.packages?.name ?? '',
+      r.packages?.price ?? '',
+      r.payment_status,
+      r.payment_notes ?? '',
+      logs.includes('toolkit') ? 'Yes' : 'No',
+      logs.includes('event')   ? 'Yes' : 'No',
+      r.created_at,
+    ].map(escape).join(',')
+  })
+
+  return { csv: [headers.join(','), ...csvRows].join('\n') }
+}
+
 // ── Screenshot signed URL (2-minute expiry) ───────────────────
 export async function getSignedScreenshotUrl(
   storagePath: string
