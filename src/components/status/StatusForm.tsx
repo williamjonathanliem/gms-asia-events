@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import Image from 'next/image'
 import { checkRegistrationStatus, type StatusResult } from '@/app/status/actions'
 import { formatDate } from '@/lib/utils'
 
@@ -102,7 +101,7 @@ export default function StatusForm() {
                 {/* Pending message */}
                 {result.payment_status === 'pending' && (
                   <div className="rounded-lg border border-warning/20 bg-warning/5 px-4 py-3 text-xs text-warning mt-2">
-                    Your payment is being reviewed. You'll receive an email once it's verified.
+                    Your payment is being reviewed. You&apos;ll receive an email once it&apos;s verified.
                   </div>
                 )}
 
@@ -110,6 +109,7 @@ export default function StatusForm() {
                 {result.payment_status === 'verified' && result.qr_data_url && (
                   <div className="mt-4 flex flex-col items-center gap-3 rounded-xl border border-[#E5E5E5] bg-[#fafafa] p-6">
                     <p className="text-xs font-semibold uppercase tracking-widest text-muted">Your QR Code</p>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={result.qr_data_url}
                       alt="Registration QR Code"
