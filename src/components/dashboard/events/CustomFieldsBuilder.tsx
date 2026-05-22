@@ -290,6 +290,7 @@ export default function CustomFieldsBuilder({ eventId, fields, onChange }: Props
   const [showAdd, setShowAdd] = useState(false)
   const [saving, setSaving] = useState(false)
   const [savedMsg, setSavedMsg] = useState(false)
+  const [dirty, setDirty] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   function move(from: number, to: number) {
@@ -297,20 +298,33 @@ export default function CustomFieldsBuilder({ eventId, fields, onChange }: Props
     const [item] = next.splice(from, 1)
     next.splice(to, 0, item)
     onChange(next)
+    setDirty(true)
   }
 
-  function handleDelete(id: string) {
-    onChange(fields.filter((f) => f.id !== id))
+  async function handleDelete(id: string) {
+    const next = fields.filter((f) => f.id !== id)
+    onChange(next)
+    // Auto-save immediately so the deletion persists even if the list becomes empty
+    setSaving(true)
+    setError(null)
+    const res = await updateCustomFields(eventId, next)
+    setSaving(false)
+    if (res.error) { setError(res.error); return }
+    setSavedMsg(true)
+    setDirty(false)
+    setTimeout(() => setSavedMsg(false), 2000)
   }
 
   function handleAdd(field: CustomField) {
     onChange([...fields, field])
     setShowAdd(false)
+    setDirty(true)
   }
 
   function handleUpdate(updated: CustomField) {
     onChange(fields.map((f) => (f.id === updated.id ? updated : f)))
     setEditingField(null)
+    setDirty(true)
   }
 
   async function handleSaveAll() {
@@ -320,6 +334,7 @@ export default function CustomFieldsBuilder({ eventId, fields, onChange }: Props
     setSaving(false)
     if (res.error) { setError(res.error); return }
     setSavedMsg(true)
+    setDirty(false)
     setTimeout(() => setSavedMsg(false), 2000)
   }
 
@@ -331,12 +346,13 @@ export default function CustomFieldsBuilder({ eventId, fields, onChange }: Props
         </p>
       )}
 
-      {/* Save bar */}
-      {fields.length > 0 && (
+      {/* Save bar — show whenever there are fields OR when dirty (e.g. all fields removed) */}
+      {(fields.length > 0 || dirty || saving || savedMsg) && (
         <div className="flex items-center justify-between rounded-lg bg-[#fafafa] px-4 py-3">
           <p className="text-xs text-muted">
-            {fields.length} custom field{fields.length !== 1 ? 's' : ''}
-            &ensp;·&ensp;Changes are applied after saving.
+            {fields.length > 0
+              ? `${fields.length} custom field${fields.length !== 1 ? 's' : ''} · Changes are applied after saving.`
+              : 'All fields removed · Save to apply.'}
           </p>
           <button
             type="button"
