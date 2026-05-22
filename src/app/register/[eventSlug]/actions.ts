@@ -4,6 +4,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { STORAGE_BUCKET } from '@/lib/constants'
 import { sendConfirmationEmail } from '@/lib/email'
+import { resolveRegistrationPricing } from '@/lib/pricing'
 import type { CustomField } from '@/lib/types/database'
 
 export type RegisterFormState = {
@@ -53,7 +54,9 @@ export async function submitRegistration(
 
   const { data: eventData } = await supabase
     .from('events')
-    .select('custom_fields, registration_open')
+    .select(
+      'custom_fields, registration_open, early_bird_enabled, early_bird_auto_change, early_bird_end_date'
+    )
     .eq('id', event_id)
     .single()
 
@@ -102,6 +105,25 @@ export async function submitRegistration(
     return { fieldErrors: { email: 'This email is already registered for this event' } }
   }
 
+  // ── Resolve pricing (server-side; never trust client) ─────────
+  let amount_paid: number | null = null
+  let is_early_bird = false
+
+  if (package_id) {
+    const { data: pkg } = await supabase
+      .from('packages')
+      .select('price, early_bird_price')
+      .eq('id', package_id)
+      .eq('event_id', event_id)
+      .single()
+
+    if (!pkg) return { error: 'Invalid package selected.' }
+
+    const pricing = resolveRegistrationPricing(pkg, eventData!)
+    amount_paid = pricing.amount_paid
+    is_early_bird = pricing.is_early_bird
+  }
+
   // ── Insert registration ──────────────────────────────────────
   const { data: registration, error: insertError } = await supabase
     .from('registrations')
@@ -115,6 +137,8 @@ export async function submitRegistration(
       package_id: package_id || null,
       payment_status: 'pending',
       custom_answers,
+      amount_paid,
+      is_early_bird,
     })
     .select('id, qr_token')
     .single()
@@ -154,18 +178,45 @@ export async function submitRegistration(
   // ── Send confirmation email (non-fatal) ──────────────────────
   const { data: fullReg } = await supabase
     .from('registrations')
-    .select('full_name, email, gms_church, nij, qr_token, packages(name, price, toolkit_items), events(name, date, location)')
+    .select(
+      `full_name, email, gms_church, nij, qr_token, amount_paid, is_early_bird,
+       packages(name, price, early_bird_price, toolkit_items),
+       events(name, date, location, currency, early_bird_enabled, early_bird_auto_change, early_bird_end_date)`
+    )
     .eq('id', registration.id)
     .single()
 
   if (fullReg?.packages && fullReg?.events) {
     try {
-      const pkg = fullReg.packages as unknown as { name: string; price: number; toolkit_items: string[] }
-      const evt = fullReg.events as unknown as { name: string; date: string; location: string }
+      const pkg = fullReg.packages as unknown as {
+        name: string
+        price: number
+        early_bird_price: number | null
+        toolkit_items: string[]
+      }
+      const evt = fullReg.events as unknown as {
+        name: string
+        date: string
+        location: string
+        currency: string
+        early_bird_enabled: boolean
+        early_bird_auto_change: boolean
+        early_bird_end_date: string | null
+      }
       await sendConfirmationEmail(
-        { full_name: fullReg.full_name, email: fullReg.email, gms_church: fullReg.gms_church, nij: fullReg.nij, qr_token: fullReg.qr_token },
+        {
+          full_name: fullReg.full_name,
+          email: fullReg.email,
+          gms_church: fullReg.gms_church,
+          nij: fullReg.nij,
+          qr_token: fullReg.qr_token,
+        },
         pkg,
-        evt
+        evt,
+        {
+          amount_paid: fullReg.amount_paid != null ? Number(fullReg.amount_paid) : Number(pkg.price),
+          is_early_bird: fullReg.is_early_bird,
+        }
       )
     } catch (emailErr) {
       console.error('[email error]', emailErr)

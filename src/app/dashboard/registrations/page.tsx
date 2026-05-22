@@ -114,8 +114,9 @@ export default async function RegistrationsPage({
     .from('registrations')
     .select(
       `id, full_name, email, phone, gms_church, nij,
-       payment_status, payment_notes, payment_screenshot_url, qr_token, created_at, package_id,
-       events(name, date),
+       payment_status, payment_notes, payment_screenshot_url, qr_token,
+       amount_paid, is_early_bird, created_at, package_id,
+       events(name, date, currency),
        packages(name, price, toolkit_items),
        attendance_logs(scan_type, scanned_at)`,
       { count: 'exact' }
@@ -150,6 +151,21 @@ export default async function RegistrationsPage({
     : { data: [] }
   const packages = (packagesData ?? []) as Package[]
 
+  let eventPricing: {
+    currency: string
+    early_bird_enabled: boolean
+    early_bird_auto_change: boolean
+    early_bird_end_date: string | null
+  } | null = null
+  if (filterEventId) {
+    const { data: evPricing } = await supabase
+      .from('events')
+      .select('currency, early_bird_enabled, early_bird_auto_change, early_bird_end_date')
+      .eq('id', filterEventId)
+      .single()
+    eventPricing = evPricing
+  }
+
   const { data: rawData, count } = await query
 
   let registrations = (rawData ?? []) as any[]
@@ -177,7 +193,11 @@ export default async function RegistrationsPage({
               <ExportButton eventId={filterEventId} />
             </Suspense>
             {filterEventId && ['super_admin', 'admin'].includes(staff?.role ?? '') && (
-              <WalkinDrawerWrapper eventId={filterEventId} packages={packages} />
+              <WalkinDrawerWrapper
+                eventId={filterEventId}
+                packages={packages}
+                eventPricing={eventPricing}
+              />
             )}
           </div>
         </div>

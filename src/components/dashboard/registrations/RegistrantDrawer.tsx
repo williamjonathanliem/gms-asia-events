@@ -28,10 +28,12 @@ export interface DrawerRegistration {
   payment_notes: string | null
   payment_screenshot_url: string | null
   qr_token: string
+  amount_paid: number | null
+  is_early_bird: boolean
   created_at: string
   package_id: string
   packages: { name: string; price: number; toolkit_items: string[] } | null
-  events: { name: string; date: string } | null
+  events: { name: string; date: string; currency: string } | null
   attendance_logs: { scan_type: string; scanned_at: string }[]
 }
 
@@ -274,7 +276,10 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
                       label="Package"
                       value={
                         reg.packages
-                          ? `Package ${reg.packages.name} — ${formatCurrency(reg.packages.price)}`
+                          ? `Package ${reg.packages.name} — ${formatCurrency(
+                              reg.amount_paid ?? reg.packages.price,
+                              reg.events?.currency ?? 'IDR'
+                            )}${reg.is_early_bird ? ' (Early bird)' : ''}`
                           : null
                       }
                     />

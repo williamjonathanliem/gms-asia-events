@@ -23,6 +23,10 @@ export interface Event {
   form_subtitle: string | null
   registration_open: boolean
   custom_fields: CustomField[]
+  early_bird_enabled: boolean
+  early_bird_auto_change: boolean
+  early_bird_end_date: string | null
+  currency: string
   created_at: string
 }
 
@@ -35,6 +39,7 @@ export interface Package {
   event_id: string
   name: string
   price: number
+  early_bird_price: number | null
   toolkit_items: string[]
   created_at: string
 }
@@ -53,6 +58,8 @@ export interface Registration {
   payment_notes: string | null
   qr_token: string
   custom_answers: Record<string, string | boolean>
+  amount_paid: number | null
+  is_early_bird: boolean
   created_at: string
 }
 

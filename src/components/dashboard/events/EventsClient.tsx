@@ -130,6 +130,9 @@ export default function EventsClient({ initialEvents }: Props) {
                     Closed
                   </span>
                 )}
+                <span className="rounded-md border border-[#E5E5E5] px-2 py-0.5 text-xs font-medium text-muted">
+                  {event.currency ?? 'IDR'}
+                </span>
                 <span className="text-xs text-muted">
                   {event.packages.length} pkg{event.packages.length !== 1 ? 's' : ''}
                 </span>

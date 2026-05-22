@@ -10,6 +10,8 @@ import type { Package } from '@/lib/types/database'
 interface Props {
   eventId: string
   packages: Package[]
+  currency: string
+  earlyBirdEnabled: boolean
   onChange: (packages: Package[]) => void
 }
 
@@ -77,15 +79,22 @@ function ToolkitItemsEditor({
 // ── Single package card ───────────────────────────────────────
 function PackageCard({
   pkg,
+  currency,
+  earlyBirdEnabled,
   onSaved,
   onDeleted,
 }: {
   pkg: Package
+  currency: string
+  earlyBirdEnabled: boolean
   onSaved: (updated: Package) => void
   onDeleted: (id: string) => void
 }) {
   const [name, setName] = useState(pkg.name)
   const [price, setPrice] = useState(String(pkg.price))
+  const [earlyBirdPrice, setEarlyBirdPrice] = useState(
+    pkg.early_bird_price != null ? String(pkg.early_bird_price) : ''
+  )
   const [items, setItems] = useState<string[]>(pkg.toolkit_items)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -93,27 +102,52 @@ function PackageCard({
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
 
+  const ebNum = earlyBirdPrice === '' ? null : Number(earlyBirdPrice)
   const dirty =
     name !== pkg.name ||
     Number(price) !== pkg.price ||
+    ebNum !== pkg.early_bird_price ||
     JSON.stringify(items) !== JSON.stringify(pkg.toolkit_items)
 
   async function handleSave() {
     if (!name.trim()) { setError('Name is required'); return }
     const priceNum = Number(price)
-    if (isNaN(priceNum) || priceNum < 0) { setError('Enter a valid price'); return }
+    if (isNaN(priceNum) || priceNum < 0) { setError('Enter a valid regular price'); return }
+    let earlyBirdPriceVal: number | null = null
+    if (earlyBirdEnabled) {
+      if (earlyBirdPrice === '') {
+        setError('Early bird price is required while early bird is enabled')
+        return
+      }
+      earlyBirdPriceVal = Number(earlyBirdPrice)
+      if (isNaN(earlyBirdPriceVal) || earlyBirdPriceVal < 0) {
+        setError('Enter a valid early bird price')
+        return
+      }
+      if (earlyBirdPriceVal >= priceNum) {
+        setError('Early bird price must be lower than regular price')
+        return
+      }
+    }
     setError(null)
     setSaving(true)
     const res = await updatePackage(pkg.id, {
       name: name.trim(),
       price: priceNum,
+      early_bird_price: earlyBirdEnabled ? earlyBirdPriceVal : null,
       toolkit_items: items,
     })
     setSaving(false)
     if (res.error) { setError(res.error); return }
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
-    onSaved({ ...pkg, name: name.trim(), price: priceNum, toolkit_items: items })
+    onSaved({
+      ...pkg,
+      name: name.trim(),
+      price: priceNum,
+      early_bird_price: earlyBirdEnabled ? earlyBirdPriceVal : null,
+      toolkit_items: items,
+    })
   }
 
   async function handleDelete() {
@@ -139,7 +173,7 @@ function PackageCard({
           />
         </div>
         <div>
-          <Label htmlFor={`pkg-price-${pkg.id}`} required>Price (IDR)</Label>
+          <Label htmlFor={`pkg-price-${pkg.id}`} required>Regular Price ({currency})</Label>
           <Input
             id={`pkg-price-${pkg.id}`}
             type="number"
@@ -149,6 +183,19 @@ function PackageCard({
             placeholder="500000"
           />
         </div>
+        {earlyBirdEnabled && (
+          <div className="col-span-2">
+            <Label htmlFor={`pkg-eb-${pkg.id}`} required>Early Bird Price ({currency})</Label>
+            <Input
+              id={`pkg-eb-${pkg.id}`}
+              type="number"
+              min="0"
+              value={earlyBirdPrice}
+              onChange={(e) => setEarlyBirdPrice(e.target.value)}
+              placeholder="400000"
+            />
+          </div>
+        )}
       </div>
 
       <div>
@@ -204,15 +251,20 @@ function PackageCard({
 // ── New package form ──────────────────────────────────────────
 function NewPackageForm({
   eventId,
+  currency,
+  earlyBirdEnabled,
   onCreated,
   onCancel,
 }: {
   eventId: string
+  currency: string
+  earlyBirdEnabled: boolean
   onCreated: (pkg: Package) => void
   onCancel: () => void
 }) {
   const [name, setName] = useState('')
   const [price, setPrice] = useState('')
+  const [earlyBirdPrice, setEarlyBirdPrice] = useState('')
   const [items, setItems] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -220,10 +272,25 @@ function NewPackageForm({
   async function handleCreate() {
     if (!name.trim()) { setError('Name is required'); return }
     const priceNum = Number(price)
-    if (isNaN(priceNum) || priceNum < 0) { setError('Enter a valid price'); return }
+    if (isNaN(priceNum) || priceNum < 0) { setError('Enter a valid regular price'); return }
+    let earlyBirdPriceVal: number | null = null
+    if (earlyBirdEnabled) {
+      if (!earlyBirdPrice) { setError('Early bird price is required'); return }
+      earlyBirdPriceVal = Number(earlyBirdPrice)
+      if (isNaN(earlyBirdPriceVal) || earlyBirdPriceVal >= priceNum) {
+        setError('Early bird price must be lower than regular price')
+        return
+      }
+    }
     setError(null)
     setSaving(true)
-    const res = await createPackage({ event_id: eventId, name: name.trim(), price: priceNum, toolkit_items: items })
+    const res = await createPackage({
+      event_id: eventId,
+      name: name.trim(),
+      price: priceNum,
+      early_bird_price: earlyBirdEnabled ? earlyBirdPriceVal : null,
+      toolkit_items: items,
+    })
     setSaving(false)
     if (res.error) { setError(res.error); return }
     onCreated(res.pkg!)
@@ -246,7 +313,7 @@ function NewPackageForm({
           />
         </div>
         <div>
-          <Label htmlFor="new-pkg-price" required>Price (IDR)</Label>
+          <Label htmlFor="new-pkg-price" required>Regular Price ({currency})</Label>
           <Input
             id="new-pkg-price"
             type="number"
@@ -256,6 +323,19 @@ function NewPackageForm({
             placeholder="500000"
           />
         </div>
+        {earlyBirdEnabled && (
+          <div className="col-span-2">
+            <Label htmlFor="new-pkg-eb" required>Early Bird Price ({currency})</Label>
+            <Input
+              id="new-pkg-eb"
+              type="number"
+              min="0"
+              value={earlyBirdPrice}
+              onChange={(e) => setEarlyBirdPrice(e.target.value)}
+              placeholder="400000"
+            />
+          </div>
+        )}
       </div>
 
       <div>
@@ -285,7 +365,7 @@ function NewPackageForm({
 }
 
 // ── Package editor root ───────────────────────────────────────
-export default function PackageEditor({ eventId, packages, onChange }: Props) {
+export default function PackageEditor({ eventId, packages, currency, earlyBirdEnabled, onChange }: Props) {
   const [showNew, setShowNew] = useState(false)
 
   function handleSaved(updated: Package) {
@@ -307,10 +387,18 @@ export default function PackageEditor({ eventId, packages, onChange }: Props) {
         <p className="text-center text-sm text-muted py-4">No packages yet.</p>
       )}
 
+      {earlyBirdEnabled && (
+        <p className="text-xs text-muted px-1">
+          Set both regular and early bird prices per package. Save each package after editing.
+        </p>
+      )}
+
       {packages.map((pkg) => (
         <PackageCard
           key={pkg.id}
           pkg={pkg}
+          currency={currency}
+          earlyBirdEnabled={earlyBirdEnabled}
           onSaved={handleSaved}
           onDeleted={handleDeleted}
         />
@@ -319,6 +407,8 @@ export default function PackageEditor({ eventId, packages, onChange }: Props) {
       {showNew ? (
         <NewPackageForm
           eventId={eventId}
+          currency={currency}
+          earlyBirdEnabled={earlyBirdEnabled}
           onCreated={handleCreated}
           onCancel={() => setShowNew(false)}
         />

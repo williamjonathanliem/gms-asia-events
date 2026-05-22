@@ -9,6 +9,8 @@ import {
 } from '@/app/dashboard/events/actions'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Select } from '@/components/ui/select'
+import { EVENT_CURRENCIES, DEFAULT_EVENT_CURRENCY } from '@/lib/currencies'
 import { cn } from '@/lib/utils'
 import PackageEditor from './PackageEditor'
 import CustomFieldsBuilder from './CustomFieldsBuilder'
@@ -113,6 +115,12 @@ export default function EventDrawer({ event, onClose, onEventSaved, onEventDelet
   const [formSubtitle, setFormSubtitle] = useState(event?.form_subtitle ?? '')
   const [isActive, setIsActive] = useState(event?.is_active ?? false)
   const [regOpen, setRegOpen] = useState(event?.registration_open ?? true)
+  const [earlyBirdEnabled, setEarlyBirdEnabled] = useState(event?.early_bird_enabled ?? false)
+  const [earlyBirdAutoChange, setEarlyBirdAutoChange] = useState(event?.early_bird_auto_change ?? true)
+  const [earlyBirdEndDate, setEarlyBirdEndDate] = useState(event?.early_bird_end_date ?? '')
+  const [currency, setCurrency] = useState(
+    event?.currency ?? DEFAULT_EVENT_CURRENCY
+  )
 
   // Local packages + custom_fields for sub-editors
   const [localPackages, setLocalPackages] = useState<Package[]>(event?.packages ?? [])
@@ -129,6 +137,10 @@ export default function EventDrawer({ event, onClose, onEventSaved, onEventDelet
       setError('Name, slug, date, and location are required.')
       return
     }
+    if (earlyBirdEnabled && earlyBirdAutoChange && !earlyBirdEndDate) {
+      setError('Early bird end date is required when Auto change is enabled.')
+      return
+    }
 
     setSaving(true)
     if (isNew) {
@@ -139,6 +151,7 @@ export default function EventDrawer({ event, onClose, onEventSaved, onEventDelet
         location,
         form_title: formTitle || undefined,
         form_subtitle: formSubtitle || undefined,
+        currency,
       })
       setSaving(false)
       if (res.error) { setError(res.error); return }
@@ -154,6 +167,10 @@ export default function EventDrawer({ event, onClose, onEventSaved, onEventDelet
         form_subtitle: formSubtitle || null,
         is_active: isActive,
         registration_open: regOpen,
+        early_bird_enabled: earlyBirdEnabled,
+        early_bird_auto_change: earlyBirdAutoChange,
+        early_bird_end_date: earlyBirdEnabled && earlyBirdEndDate ? earlyBirdEndDate : null,
+        currency,
       })
       setSaving(false)
       if (res.error) { setError(res.error); return }
@@ -167,6 +184,10 @@ export default function EventDrawer({ event, onClose, onEventSaved, onEventDelet
         form_subtitle: formSubtitle || null,
         is_active: isActive,
         registration_open: regOpen,
+        early_bird_enabled: earlyBirdEnabled,
+        early_bird_auto_change: earlyBirdAutoChange,
+        early_bird_end_date: earlyBirdEnabled && earlyBirdEndDate ? earlyBirdEndDate : null,
+        currency,
         packages: localPackages,
         custom_fields: localFields,
       })
@@ -314,6 +335,23 @@ export default function EventDrawer({ event, onClose, onEventSaved, onEventDelet
                     />
                   </div>
                   <div>
+                    <Label htmlFor="ev-currency" required>Registration currency</Label>
+                    <Select
+                      id="ev-currency"
+                      value={currency}
+                      onChange={(e) => setCurrency(e.target.value)}
+                    >
+                      {EVENT_CURRENCIES.map((c) => (
+                        <option key={c.code} value={c.code}>
+                          {c.label}
+                        </option>
+                      ))}
+                    </Select>
+                    <p className="mt-1 text-xs text-muted">
+                      Package prices and payment amounts for this event are set in this currency.
+                    </p>
+                  </div>
+                  <div>
                     <Label htmlFor="ev-fsub">Form Description</Label>
                     <textarea
                       id="ev-fsub"
@@ -342,6 +380,50 @@ export default function EventDrawer({ event, onClose, onEventSaved, onEventDelet
                     label="Registration Open"
                     description="When off, the public registration form shows a 'closed' message."
                   />
+                </div>
+              )}
+
+              {/* Early bird (edit only) */}
+              {!isNew && (
+                <div className="space-y-4 border-t border-[#E5E5E5] pt-5">
+                  <p className="text-xs font-semibold uppercase tracking-widest text-muted">
+                    Early Bird Pricing
+                  </p>
+                  <Toggle
+                    checked={earlyBirdEnabled}
+                    onChange={(v) => {
+                      setEarlyBirdEnabled(v)
+                      if (!v) setEarlyBirdEndDate('')
+                    }}
+                    label="Early Bird"
+                    description="Offer discounted package prices before the regular rate applies."
+                  />
+                  {earlyBirdEnabled && (
+                    <div className="space-y-4 rounded-lg border border-[#E5E5E5] bg-[#fafafa] p-4">
+                      <Toggle
+                        checked={earlyBirdAutoChange}
+                        onChange={setEarlyBirdAutoChange}
+                        label="Auto change"
+                        description="Automatically switch to regular pricing after the end date. When off, pricing stays early bird until you disable it above."
+                      />
+                      <div>
+                        <Label htmlFor="ev-eb-end" required={earlyBirdAutoChange}>
+                          Early bird end date
+                        </Label>
+                        <Input
+                          id="ev-eb-end"
+                          type="date"
+                          value={earlyBirdEndDate}
+                          onChange={(e) => setEarlyBirdEndDate(e.target.value)}
+                        />
+                        <p className="mt-1 text-xs text-muted">
+                          {earlyBirdAutoChange
+                            ? 'Last day early bird pricing applies (inclusive).'
+                            : 'Shown in emails as the promotional end date; pricing follows the Early Bird toggle until you turn it off.'}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -400,6 +482,8 @@ export default function EventDrawer({ event, onClose, onEventSaved, onEventDelet
             <PackageEditor
               eventId={event.id}
               packages={localPackages}
+              currency={currency}
+              earlyBirdEnabled={earlyBirdEnabled}
               onChange={setLocalPackages}
             />
           )}

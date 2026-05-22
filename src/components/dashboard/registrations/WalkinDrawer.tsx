@@ -6,17 +6,34 @@ import { createWalkinRegistration } from '@/app/dashboard/registrations/walkin-a
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
-import { formatCurrency, cn } from '@/lib/utils'
+import { resolveEventCurrency } from '@/lib/currencies'
+import { CurrencyBanner, PackagePrice } from '@/components/registration/PackagePrice'
+import { cn, formatDate } from '@/lib/utils'
+import { getEffectivePackagePrice, isEarlyBirdPricingActive } from '@/lib/pricing'
 import { GMS_CHURCHES } from '@/lib/constants'
-import type { Package, PaymentStatus } from '@/lib/types/database'
+import type { Event, Package, PaymentStatus } from '@/lib/types/database'
+
+type EventPricing = Pick<
+  Event,
+  'currency' | 'early_bird_enabled' | 'early_bird_auto_change' | 'early_bird_end_date'
+>
 
 interface Props {
   eventId: string
   packages: Package[]
+  eventPricing: EventPricing | null
   onClose: () => void
 }
 
-export default function WalkinDrawer({ eventId, packages, onClose }: Props) {
+export default function WalkinDrawer({ eventId, packages, eventPricing, onClose }: Props) {
+  const ebEvent = eventPricing ?? {
+    currency: 'IDR',
+    early_bird_enabled: false,
+    early_bird_auto_change: true,
+    early_bird_end_date: null,
+  }
+  const currency = resolveEventCurrency(ebEvent.currency)
+  const earlyBirdActive = isEarlyBirdPricingActive(ebEvent)
   const router = useRouter()
 
   const [fullName,   setFullName]   = useState('')
@@ -147,7 +164,13 @@ export default function WalkinDrawer({ eventId, packages, onClose }: Props) {
           {/* Package */}
           {packages.length > 0 && (
             <div>
-              <Label>Package <span className="font-normal text-muted">(optional)</span></Label>
+              <div className="flex flex-wrap items-center gap-2">
+                <Label>Package <span className="font-normal text-muted">(optional)</span></Label>
+                <span className="rounded-full border border-[#E5E5E5] px-2 py-0.5 text-[10px] font-semibold uppercase text-muted">
+                  {currency}
+                </span>
+              </div>
+              <CurrencyBanner currency={currency} className="mt-2" />
               <div className="mt-2 space-y-2">
                 <label className={cn(
                   'flex cursor-pointer items-center gap-3 rounded-lg border-2 p-3 transition-colors',
@@ -161,7 +184,18 @@ export default function WalkinDrawer({ eventId, packages, onClose }: Props) {
                   </div>
                   <span className="text-sm text-muted italic">No package</span>
                 </label>
-                {packages.map((pkg) => (
+                {earlyBirdActive && eventPricing?.early_bird_end_date && (
+                  <p className="text-xs text-muted mb-2">
+                    Early bird until {formatDate(eventPricing.early_bird_end_date)}
+                  </p>
+                )}
+                {packages.map((pkg) => {
+                  const effective = getEffectivePackagePrice(pkg, ebEvent)
+                  const showEb =
+                    earlyBirdActive &&
+                    pkg.early_bird_price != null &&
+                    effective < pkg.price
+                  return (
                   <label key={pkg.id} className={cn(
                     'flex cursor-pointer items-center gap-3 rounded-lg border-2 p-3 transition-colors',
                     packageId === pkg.id ? 'border-[#111111] bg-[#fafafa]' : 'border-[#E5E5E5] hover:border-[#999999]'
@@ -174,10 +208,17 @@ export default function WalkinDrawer({ eventId, packages, onClose }: Props) {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-[#111111]">{pkg.name}</p>
-                      <p className="text-xs text-muted">{formatCurrency(pkg.price)}</p>
+                      <div className="mt-1">
+                        <PackagePrice
+                          amount={effective}
+                          currency={currency}
+                          compareAt={showEb ? pkg.price : null}
+                          size="sm"
+                        />
+                      </div>
                     </div>
                   </label>
-                ))}
+                )})}
               </div>
             </div>
           )}

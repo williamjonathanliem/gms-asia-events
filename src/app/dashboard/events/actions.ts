@@ -4,6 +4,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { getCurrentStaffUser } from '@/lib/supabase/auth'
 import { revalidatePath } from 'next/cache'
 import { slugify } from '@/lib/utils'
+import { DEFAULT_EVENT_CURRENCY, isValidEventCurrency } from '@/lib/currencies'
 import type { CustomField, EventWithPackages, Package } from '@/lib/types/database'
 
 async function requireSuperAdmin() {
@@ -20,10 +21,15 @@ export async function createEvent(data: {
   location: string
   form_title?: string
   form_subtitle?: string
+  currency?: string
 }): Promise<{ event?: EventWithPackages; error?: string }> {
   try {
     await requireSuperAdmin()
     const supabase = createServiceClient()
+    const currency = data.currency?.trim() || DEFAULT_EVENT_CURRENCY
+    if (!isValidEventCurrency(currency)) {
+      return { error: 'Invalid currency selected.' }
+    }
 
     const { data: event, error } = await supabase
       .from('events')
@@ -34,9 +40,13 @@ export async function createEvent(data: {
         location: data.location.trim(),
         form_title: data.form_title?.trim() || null,
         form_subtitle: data.form_subtitle?.trim() || null,
+        currency,
         is_active: false,
         registration_open: true,
         custom_fields: [],
+        early_bird_enabled: false,
+        early_bird_auto_change: true,
+        early_bird_end_date: null,
       })
       .select('*')
       .single()
@@ -60,11 +70,23 @@ export async function updateEvent(
     form_subtitle: string | null
     is_active: boolean
     registration_open: boolean
+    early_bird_enabled: boolean
+    early_bird_auto_change: boolean
+    early_bird_end_date: string | null
+    currency: string
   }>
 ): Promise<{ error?: string }> {
   try {
     await requireSuperAdmin()
     const supabase = createServiceClient()
+
+    if (data.currency != null && !isValidEventCurrency(data.currency)) {
+      return { error: 'Invalid currency selected.' }
+    }
+
+    if (data.early_bird_enabled && data.early_bird_auto_change && !data.early_bird_end_date) {
+      return { error: 'Early bird end date is required when Auto change is enabled.' }
+    }
 
     // Deactivate all other events first if setting this one active
     if (data.is_active === true) {
@@ -99,11 +121,19 @@ export async function createPackage(data: {
   event_id: string
   name: string
   price: number
+  early_bird_price?: number | null
   toolkit_items: string[]
 }): Promise<{ pkg?: Package; error?: string }> {
   try {
     await requireSuperAdmin()
     const supabase = createServiceClient()
+
+    if (
+      data.early_bird_price != null &&
+      data.early_bird_price >= data.price
+    ) {
+      return { error: 'Early bird price must be lower than the regular price.' }
+    }
 
     const { data: pkg, error } = await supabase
       .from('packages')
@@ -111,6 +141,7 @@ export async function createPackage(data: {
         event_id: data.event_id,
         name: data.name.trim(),
         price: data.price,
+        early_bird_price: data.early_bird_price ?? null,
         toolkit_items: data.toolkit_items,
       })
       .select('*')
@@ -126,11 +157,28 @@ export async function createPackage(data: {
 
 export async function updatePackage(
   id: string,
-  data: { name?: string; price?: number; toolkit_items?: string[] }
+  data: {
+    name?: string
+    price?: number
+    early_bird_price?: number | null
+    toolkit_items?: string[]
+  }
 ): Promise<{ error?: string }> {
   try {
     await requireSuperAdmin()
     const supabase = createServiceClient()
+
+    if (data.price != null && data.early_bird_price != null && data.early_bird_price >= data.price) {
+      return { error: 'Early bird price must be lower than the regular price.' }
+    }
+
+    if (data.early_bird_price != null && data.price == null) {
+      const { data: existing } = await supabase.from('packages').select('price').eq('id', id).single()
+      if (existing && data.early_bird_price >= Number(existing.price)) {
+        return { error: 'Early bird price must be lower than the regular price.' }
+      }
+    }
+
     const { error } = await supabase.from('packages').update(data).eq('id', id)
     if (error) return { error: error.message }
     revalidatePath('/dashboard/events')

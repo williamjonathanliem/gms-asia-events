@@ -6,7 +6,10 @@ import { submitRegistration, type RegisterFormState } from './actions'
 import { type Package } from '@/lib/types/database'
 import type { EventWithPackages, CustomField } from '@/lib/types/database'
 import { GMS_CHURCHES } from '@/lib/constants'
-import { formatCurrency, formatDate } from '@/lib/utils'
+import { resolveEventCurrency } from '@/lib/currencies'
+import { CurrencyBanner, PackagePrice } from '@/components/registration/PackagePrice'
+import { formatDate } from '@/lib/utils'
+import { getEffectivePackagePrice, isEarlyBirdPricingActive } from '@/lib/pricing'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -127,6 +130,13 @@ export default function RegistrationForm({ event, packages }: Props) {
 
   const headingText = event.form_title || event.name
   const subtitleText = event.form_subtitle
+  const earlyBirdActive = isEarlyBirdPricingActive(event)
+  const currency = resolveEventCurrency(event.currency)
+
+  const selectedPackage = packages.find((p) => p.id === selectedPkg)
+  const amountDue = selectedPackage
+    ? getEffectivePackagePrice(selectedPackage, event)
+    : null
 
   return (
     <div className="min-h-screen bg-white">
@@ -244,14 +254,35 @@ export default function RegistrationForm({ event, packages }: Props) {
 
         {/* ── Section: Package Selection (hidden when event has no packages) ── */}
         {packages.length > 0 && <section className="space-y-4">
-          <h2 className="text-xs font-semibold uppercase tracking-widest text-[#111111]">
-            Package
-          </h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-xs font-semibold uppercase tracking-widest text-[#111111]">
+              Package
+            </h2>
+            <span className="rounded-full border border-[#E5E5E5] bg-[#fafafa] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#111111]">
+              {currency}
+            </span>
+            {earlyBirdActive && (
+              <span className="rounded-full bg-[#111111] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+                Early bird
+              </span>
+            )}
+          </div>
+          <CurrencyBanner currency={currency} />
+          {earlyBirdActive && event.early_bird_end_date && (
+            <p className="text-xs text-muted">
+              Early bird pricing until {formatDate(event.early_bird_end_date)} (inclusive).
+            </p>
+          )}
           <FieldError message={fe.package_id} />
 
           <div className="space-y-3">
             {packages.map((pkg) => {
               const isSelected = selectedPkg === pkg.id
+              const effectivePrice = getEffectivePackagePrice(pkg, event)
+              const showEarlyBird =
+                earlyBirdActive &&
+                pkg.early_bird_price != null &&
+                effectivePrice < pkg.price
               return (
                 <label
                   key={pkg.id}
@@ -276,9 +307,12 @@ export default function RegistrationForm({ event, packages }: Props) {
                       <span className="font-semibold text-[#111111]">
                         {pkg.name}
                       </span>
-                      <span className="shrink-0 font-semibold text-[#111111]">
-                        {formatCurrency(pkg.price)}
-                      </span>
+                      <PackagePrice
+                        amount={effectivePrice}
+                        currency={currency}
+                        compareAt={showEarlyBird ? pkg.price : null}
+                        className="shrink-0"
+                      />
                     </div>
                     <ul className="mt-2.5 space-y-1.5">
                       {pkg.toolkit_items.map((item, i) => (
@@ -313,8 +347,22 @@ export default function RegistrationForm({ event, packages }: Props) {
             <h2 className="text-xs font-semibold uppercase tracking-widest text-[#111111]">
               Payment Proof
             </h2>
-            <p className="mt-1 text-sm text-muted">
-              Upload a screenshot of your payment transfer — JPG, PNG, or WebP, max 5 MB.
+            {amountDue != null && selectedPackage && (
+              <div className="mt-3 flex items-center justify-between gap-4 rounded-lg border-2 border-[#111111] bg-[#fafafa] px-4 py-3">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-widest text-muted">
+                    Amount to pay
+                  </p>
+                  <p className="mt-0.5 text-sm text-[#111111]">
+                    Package {selectedPackage.name}
+                  </p>
+                </div>
+                <PackagePrice amount={amountDue} currency={currency} />
+              </div>
+            )}
+            <p className="mt-3 text-sm text-muted">
+              Upload a screenshot of your bank transfer for the exact amount above in{' '}
+              <strong className="text-[#111111]">{currency}</strong> — JPG, PNG, or WebP, max 5 MB.
             </p>
           </div>
 

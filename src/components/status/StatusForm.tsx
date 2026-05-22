@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { checkRegistrationStatus, type StatusResult } from '@/app/status/actions'
+import { PackagePrice } from '@/components/registration/PackagePrice'
 import { formatDate } from '@/lib/utils'
 
 export default function StatusForm() {
@@ -83,9 +84,20 @@ export default function StatusForm() {
                   <span className="text-[#111111]">{result.event_date ? formatDate(result.event_date) : '—'}</span>
                 </div>
                 {result.package_name && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted">Package</span>
-                    <span className="text-[#111111]">{result.package_name}</span>
+                  <div className="flex justify-between items-start gap-4 text-sm">
+                    <span className="text-muted shrink-0">Package</span>
+                    <div className="text-right">
+                      <p className="text-[#111111]">{result.package_name}</p>
+                      {result.amount_paid != null && (
+                        <div className="mt-1">
+                          <PackagePrice
+                            amount={result.amount_paid}
+                            currency={result.currency}
+                            size="sm"
+                          />
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
 

@@ -3,7 +3,13 @@ import type { Event, Package, Registration } from '@/lib/types/database'
 
 type RegSummary = Pick<Registration, 'full_name' | 'email' | 'gms_church' | 'nij'>
 type PkgSummary = Pick<Package, 'name' | 'price' | 'toolkit_items'>
-type EventSummary = Pick<Event, 'name' | 'date' | 'location'>
+type EventSummaryBase = Pick<Event, 'name' | 'date' | 'location'>
+type EventSummary = EventSummaryBase &
+  Pick<Event, 'early_bird_enabled' | 'early_bird_auto_change' | 'early_bird_end_date' | 'currency'>
+export type EmailPricing = {
+  amount_paid: number
+  is_early_bird: boolean
+}
 
 // ── Shared layout wrapper ─────────────────────────────────────
 function layout(eventName: string, body: string) {
@@ -51,8 +57,52 @@ function layout(eventName: string, body: string) {
 </html>`
 }
 
+function earlyBirdNotice(event: EventSummary, pricing: EmailPricing): string {
+  if (!pricing.is_early_bird) return ''
+  const endLine = event.early_bird_end_date
+    ? `<p style="margin:8px 0 0;font-size:12px;color:#6B6B6B;">
+        Early bird pricing${event.early_bird_auto_change ? ' ends' : ' is offered until'} 
+        <strong style="color:#111111;">${formatDate(event.early_bird_end_date)}</strong>.
+        After that, regular package rates apply.
+      </p>`
+    : ''
+  return `
+  <table width="100%" cellpadding="0" cellspacing="0"
+    style="border:1px solid #E5E5E5;border-left:3px solid #111111;border-radius:0 8px 8px 0;margin-bottom:20px;">
+    <tr>
+      <td style="padding:14px 18px;">
+        <p style="margin:0 0 4px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:#111111;">
+          Early bird rate applied
+        </p>
+        <p style="margin:0;font-size:13px;color:#111111;">
+          You registered at the promotional early bird price shown below.
+        </p>
+        ${endLine}
+      </td>
+    </tr>
+  </table>`
+}
+
 // ── Shared registration detail block ─────────────────────────
-function registrationBlock(reg: RegSummary, pkg: PkgSummary) {
+function registrationBlock(
+  reg: RegSummary,
+  pkg: PkgSummary,
+  currency: string,
+  pricing?: EmailPricing
+) {
+  const displayPrice = pricing?.amount_paid ?? pkg.price
+  const priceLine =
+    pricing?.is_early_bird && displayPrice < pkg.price
+      ? `<p style="margin:0;font-size:13px;font-weight:600;color:#111111;">
+          Package ${pkg.name} — ${formatCurrency(displayPrice, currency)}
+          <span style="margin-left:6px;font-size:11px;font-weight:400;color:#6B6B6B;text-decoration:line-through;">
+            ${formatCurrency(pkg.price, currency)}
+          </span>
+          <span style="margin-left:6px;font-size:10px;font-weight:600;text-transform:uppercase;color:#111111;">
+            Early bird
+          </span>
+        </p>`
+      : `<p style="margin:0;font-size:13px;font-weight:600;color:#111111;">Package ${pkg.name} — ${formatCurrency(displayPrice, currency)}</p>`
   const nijRow = reg.nij
     ? `<tr>
         <td style="padding:14px 18px;border-bottom:1px solid #E5E5E5;">
@@ -87,7 +137,7 @@ function registrationBlock(reg: RegSummary, pkg: PkgSummary) {
     <tr>
       <td style="padding:14px 18px;border-bottom:1px solid #E5E5E5;">
         <p style="margin:0 0 3px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:#6B6B6B;">Package</p>
-        <p style="margin:0;font-size:13px;font-weight:600;color:#111111;">Package ${pkg.name} — ${formatCurrency(pkg.price)}</p>
+        ${priceLine}
       </td>
     </tr>
     <tr>
@@ -103,7 +153,8 @@ function registrationBlock(reg: RegSummary, pkg: PkgSummary) {
 export function confirmationTemplate(
   reg: RegSummary,
   pkg: PkgSummary,
-  event: EventSummary
+  event: EventSummary,
+  pricing?: EmailPricing
 ) {
   const body = `
     <p style="margin:0 0 6px;font-size:15px;font-weight:600;color:#111111;">Hi ${reg.full_name},</p>
@@ -113,7 +164,8 @@ export function confirmationTemplate(
       payment and confirm your spot shortly.
     </p>
 
-    ${registrationBlock(reg, pkg)}
+    ${pricing ? earlyBirdNotice(event, pricing) : ''}
+    ${registrationBlock(reg, pkg, event.currency, pricing)}
 
     <!-- QR Code -->
     <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #E5E5E5;border-radius:8px;margin-bottom:24px;">
@@ -145,7 +197,8 @@ export function confirmationTemplate(
 export function verifiedTemplate(
   reg: RegSummary,
   pkg: PkgSummary,
-  event: EventSummary
+  event: EventSummary,
+  pricing?: EmailPricing
 ) {
   const body = `
     <p style="margin:0 0 6px;font-size:15px;font-weight:600;color:#111111;">Hi ${reg.full_name},</p>
@@ -155,7 +208,8 @@ export function verifiedTemplate(
       ${formatDate(event.date)}.
     </p>
 
-    ${registrationBlock(reg, pkg)}
+    ${pricing?.is_early_bird ? earlyBirdNotice(event, pricing) : ''}
+    ${registrationBlock(reg, pkg, event.currency, pricing)}
 
     <!-- QR Code -->
     <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #E5E5E5;border-radius:8px;margin-bottom:24px;">
@@ -186,7 +240,7 @@ export function verifiedTemplate(
 // ── 3. Rejection email (sent when admin rejects payment) ──────
 export function rejectionTemplate(
   reg: Pick<Registration, 'full_name'>,
-  event: EventSummary,
+  event: EventSummaryBase,
   reason: string
 ) {
   const body = `

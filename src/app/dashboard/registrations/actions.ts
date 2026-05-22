@@ -25,9 +25,9 @@ export async function exportRegistrations(filters: {
     .from('registrations')
     .select(
       `full_name, email, phone, gms_church, nij,
-       payment_status, payment_notes, qr_token, created_at,
+       payment_status, payment_notes, qr_token, amount_paid, is_early_bird, created_at,
        packages(name, price),
-       events(name),
+       events(name, currency),
        attendance_logs(scan_type)`
     )
     .order('created_at', { ascending: false })
@@ -61,7 +61,7 @@ export async function exportRegistrations(filters: {
 
   const headers = [
     'Full Name', 'Email', 'Phone', 'Church', 'NIJ',
-    'Package', 'Price (IDR)', 'Payment Status', 'Payment Notes',
+    'Package', 'Price', 'Currency', 'Early Bird', 'Payment Status', 'Payment Notes',
     'Toolkit Collected', 'Event Attended', 'Registered At',
   ]
 
@@ -74,7 +74,9 @@ export async function exportRegistrations(filters: {
       r.gms_church,
       r.nij ?? '',
       r.packages?.name ?? '',
-      r.packages?.price ?? '',
+      r.amount_paid ?? r.packages?.price ?? '',
+      r.events?.currency ?? '',
+      r.is_early_bird ? 'Yes' : 'No',
       r.payment_status,
       r.payment_notes ?? '',
       logs.includes('toolkit') ? 'Yes' : 'No',
@@ -122,13 +124,25 @@ export async function verifyPayment(
     .update({ payment_status: 'verified', payment_notes: null })
     .eq('id', registrationId)
     .select(
-      'full_name, email, gms_church, nij, qr_token, packages(name, price, toolkit_items), events(name, date, location)'
+      `full_name, email, gms_church, nij, qr_token, amount_paid, is_early_bird,
+       packages(name, price, toolkit_items),
+       events(name, date, location, currency, early_bird_enabled, early_bird_auto_change, early_bird_end_date)`
     )
     .single()
 
   if (error || !reg) return { error: 'Update failed. Please try again.' }
 
   try {
+    const pkg = reg.packages as unknown as { name: string; price: number; toolkit_items: string[] }
+    const evt = reg.events as unknown as {
+      name: string
+      date: string
+      location: string
+      currency: string
+      early_bird_enabled: boolean
+      early_bird_auto_change: boolean
+      early_bird_end_date: string | null
+    }
     await sendVerifiedEmail(
       {
         full_name: reg.full_name,
@@ -137,8 +151,14 @@ export async function verifyPayment(
         nij: reg.nij,
         qr_token: reg.qr_token,
       },
-      reg.packages as unknown as { name: string; price: number; toolkit_items: string[] },
-      reg.events as unknown as { name: string; date: string; location: string }
+      pkg,
+      evt,
+      reg.amount_paid != null
+        ? {
+            amount_paid: Number(reg.amount_paid),
+            is_early_bird: reg.is_early_bird,
+          }
+        : undefined
     )
   } catch (e) {
     console.error('[email error]', e)

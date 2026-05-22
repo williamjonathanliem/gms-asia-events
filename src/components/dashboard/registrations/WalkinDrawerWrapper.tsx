@@ -2,14 +2,20 @@
 
 import { useState } from 'react'
 import WalkinDrawer from './WalkinDrawer'
-import type { Package } from '@/lib/types/database'
+import type { Event, Package } from '@/lib/types/database'
+
+type EventPricing = Pick<
+  Event,
+  'currency' | 'early_bird_enabled' | 'early_bird_auto_change' | 'early_bird_end_date'
+>
 
 interface Props {
   eventId: string
   packages: Package[]
+  eventPricing: EventPricing | null
 }
 
-export default function WalkinDrawerWrapper({ eventId, packages }: Props) {
+export default function WalkinDrawerWrapper({ eventId, packages, eventPricing }: Props) {
   const [open, setOpen] = useState(false)
 
   return (
@@ -28,6 +34,7 @@ export default function WalkinDrawerWrapper({ eventId, packages }: Props) {
         <WalkinDrawer
           eventId={eventId}
           packages={packages}
+          eventPricing={eventPricing}
           onClose={() => setOpen(false)}
         />
       )}
