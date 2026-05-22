@@ -148,7 +148,7 @@ export default function RegistrationForm({ event, packages }: Props) {
           </p>
           <h1 className="mt-2 text-2xl font-semibold text-[#111111]">{headingText}</h1>
           {subtitleText ? (
-            <p className="mt-2 text-sm text-muted">{subtitleText}</p>
+            <p className="mt-2 text-sm text-muted whitespace-pre-line">{subtitleText}</p>
           ) : (
             <p className="mt-1 text-sm text-muted">
               {formatDate(event.date)}&ensp;·&ensp;{event.location}
