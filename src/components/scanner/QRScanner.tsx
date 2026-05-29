@@ -85,21 +85,22 @@ export default function QRScanner() {
 
     ;(async () => {
       try {
-        // Prefer rear camera on mobile
-        const devices = await BrowserMultiFormatReader.listVideoInputDevices()
-        const rearDevice = devices.find((d) =>
-          /back|rear|environment/i.test(d.label)
-        )
-        const deviceId = rearDevice?.deviceId ?? devices[0]?.deviceId
-
-        const controls = await reader.decodeFromVideoDevice(
-          deviceId,
+        // Request rear camera at the highest resolution the device supports
+        const controls = await reader.decodeFromConstraints(
+          {
+            video: {
+              facingMode: { ideal: 'environment' },
+              width:  { ideal: 3840, min: 1280 },
+              height: { ideal: 2160, min: 720 },
+              aspectRatio: { ideal: 16 / 9 },
+            },
+          },
           videoRef.current!,
           (result, err) => {
             if (!mounted) return
             if (result) handleScanToken(result.getText())
             if (err && !(err instanceof NotFoundException)) {
-              // non-decode errors — ignore, don't spam
+              // non-decode errors — ignore
             }
           }
         )
