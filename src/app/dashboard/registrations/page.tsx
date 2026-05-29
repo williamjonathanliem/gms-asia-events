@@ -5,6 +5,7 @@ import SearchFilters from '@/components/dashboard/registrations/SearchFilters'
 import RegistrationsClient from '@/components/dashboard/registrations/RegistrationsClient'
 import ExportButton from '@/components/dashboard/registrations/ExportButton'
 import WalkinDrawerWrapper from '@/components/dashboard/registrations/WalkinDrawerWrapper'
+import RefreshButton from '@/components/dashboard/registrations/RefreshButton'
 import RegistrationsSkeleton from '@/components/dashboard/registrations/RegistrationsSkeleton'
 import { formatDate } from '@/lib/utils'
 import { Suspense } from 'react'
@@ -189,6 +190,7 @@ export default async function RegistrationsPage({
             <h1 className="mt-1 text-xl font-semibold text-[#111111]">Registrations</h1>
           </div>
           <div className="flex shrink-0 items-center gap-2 pt-1">
+            <RefreshButton />
             <Suspense>
               <ExportButton eventId={filterEventId} />
             </Suspense>

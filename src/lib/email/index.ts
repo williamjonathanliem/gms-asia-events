@@ -35,14 +35,13 @@ const qrAttachment = (buffer: Buffer) => ({
   cid: 'qr-code',
 })
 
-// ── Sent immediately on registration ─────────────────────────
+// ── Sent immediately on registration (no QR yet — pending review) ────
 export async function sendConfirmationEmail(
   reg: RegSummary,
   pkg: PkgSummary,
   event: EventSummary,
   pricing?: EmailPricing
 ) {
-  const qr = await makeQR(reg.qr_token)
   const subject = pricing?.is_early_bird
     ? `Registration Received (Early Bird) — ${event.name}`
     : `Registration Received — ${event.name}`
@@ -51,7 +50,7 @@ export async function sendConfirmationEmail(
     to: reg.email,
     subject,
     html: confirmationTemplate(reg, pkg, event, pricing),
-    attachments: [qrAttachment(qr)],
+    // No QR attachment — QR is only sent once payment is verified
   })
 }
 

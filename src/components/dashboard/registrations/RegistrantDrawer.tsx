@@ -74,6 +74,7 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
   const [screenshotLoading, setScreenshotLoading] = useState(false)
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
   const [screenshotModal, setScreenshotModal] = useState(false)
+  const [tokenCopied, setTokenCopied] = useState(false)
 
   // Edit mode
   const [isEditing, setIsEditing] = useState(false)
@@ -106,8 +107,9 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
     setIsRejecting(false)
     setRejectReason('')
     setActionError('')
+    setTokenCopied(false)
 
-    // QR
+    // QR — always load for admin
     getQRDataUrl(reg.qr_token).then(setQrDataUrl).catch(console.error)
 
     // Screenshot
@@ -164,6 +166,8 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
     setLocalStatus('verified')
     setLocalNotes(null)
     onUpdate(reg.id, { payment_status: 'verified', payment_notes: null })
+    // Now generate the QR since it's verified
+    getQRDataUrl(reg.qr_token).then(setQrDataUrl).catch(console.error)
   }
 
   const handleReject = async () => {
@@ -339,29 +343,52 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
               <section>
                 <SectionTitle>QR Code</SectionTitle>
                 {qrDataUrl ? (
-                  <div className="flex items-start gap-4">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={qrDataUrl}
-                      alt="QR Code"
-                      className="size-36 rounded-lg border border-[#E5E5E5]"
-                    />
-                    <div className="space-y-2 pt-1">
-                      <a
-                        href={qrDataUrl}
-                        download={`qr-${reg.id.slice(0, 8)}.png`}
-                        className="inline-flex items-center gap-1.5 rounded-btn border border-[#E5E5E5] px-3 py-1.5 text-xs font-medium text-muted hover:bg-[#f5f5f5] hover:text-[#111111] transition-colors"
-                      >
-                        <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-                        </svg>
-                        Download PNG
-                      </a>
-                      <p className="text-xs text-muted leading-relaxed">
-                        {currentStatus === 'verified'
-                          ? 'Active — scanner will accept this.'
-                          : 'Inactive until payment is verified.'}
-                      </p>
+                  <div className="space-y-3">
+                    <div className="flex items-start gap-4">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={qrDataUrl}
+                        alt="QR Code"
+                        className="size-36 rounded-lg border border-[#E5E5E5]"
+                      />
+                      <div className="space-y-2 pt-1">
+                        <a
+                          href={qrDataUrl}
+                          download={`qr-${reg.id.slice(0, 8)}.png`}
+                          className="inline-flex items-center gap-1.5 rounded-btn border border-[#E5E5E5] px-3 py-1.5 text-xs font-medium text-muted hover:bg-[#f5f5f5] hover:text-[#111111] transition-colors"
+                        >
+                          <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                          </svg>
+                          Download PNG
+                        </a>
+                        <p className="text-xs text-muted leading-relaxed">
+                          {currentStatus === 'verified'
+                            ? 'Active — scanner will accept this.'
+                            : 'Inactive until payment is verified.'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Manual token — for manual check-in */}
+                    <div className="rounded-lg border border-[#E5E5E5] bg-[#fafafa] px-4 py-3">
+                      <p className="mb-1.5 text-xs font-medium text-muted">Manual check-in token</p>
+                      <div className="flex items-center gap-2">
+                        <code className="flex-1 truncate rounded bg-white border border-[#E5E5E5] px-2.5 py-1.5 text-xs font-mono text-[#111111] select-all">
+                          {reg.qr_token}
+                        </code>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(reg.qr_token)
+                            setTokenCopied(true)
+                            setTimeout(() => setTokenCopied(false), 2000)
+                          }}
+                          className="shrink-0 rounded-btn border border-[#E5E5E5] px-3 py-1.5 text-xs font-medium text-muted hover:bg-white hover:text-[#111111] transition-colors"
+                        >
+                          {tokenCopied ? 'Copied ✓' : 'Copy'}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ) : (
