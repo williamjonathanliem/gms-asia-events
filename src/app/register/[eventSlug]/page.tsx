@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { getGlobalChurches } from '@/app/dashboard/settings/actions'
 import RegistrationForm from './RegistrationForm'
 import { formatDate } from '@/lib/utils'
 import type { Metadata } from 'next'
@@ -57,16 +58,16 @@ export default async function RegisterPage({ params }: Props) {
     )
   }
 
-  const { data: packages } = await supabase
-    .from('packages')
-    .select('*')
-    .eq('event_id', event.id)
-    .order('price', { ascending: false })
+  const [{ data: packages }, globalChurches] = await Promise.all([
+    supabase.from('packages').select('*').eq('event_id', event.id).order('price', { ascending: false }),
+    getGlobalChurches(),
+  ])
 
   return (
     <RegistrationForm
       event={event as unknown as EventWithPackages}
       packages={packages ?? []}
+      globalChurches={globalChurches}
     />
   )
 }

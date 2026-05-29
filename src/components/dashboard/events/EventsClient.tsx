@@ -8,6 +8,7 @@ import EventDrawer from './EventDrawer'
 
 interface Props {
   initialEvents: EventWithPackages[]
+  globalChurches: string[]
 }
 
 function CopySlugButton({ slug }: { slug: string }) {
@@ -41,7 +42,7 @@ function CopySlugButton({ slug }: { slug: string }) {
   )
 }
 
-export default function EventsClient({ initialEvents }: Props) {
+export default function EventsClient({ initialEvents, globalChurches }: Props) {
   const router = useRouter()
   const [events, setEvents] = useState<EventWithPackages[]>(initialEvents)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -58,10 +59,6 @@ export default function EventsClient({ initialEvents }: Props) {
       if (idx === -1) return [saved, ...prev]
       const next = [...prev]
       next[idx] = saved
-      // If this event is now active, deactivate others in local state
-      if (saved.is_active) {
-        return next.map((e) => (e.id === saved.id ? e : { ...e, is_active: false }))
-      }
       return next
     })
     router.refresh()
@@ -153,6 +150,7 @@ export default function EventsClient({ initialEvents }: Props) {
           onClose={() => { setShowNew(false); setSelectedId(null) }}
           onEventSaved={handleEventSaved}
           onEventDeleted={handleEventDeleted}
+          globalChurches={globalChurches}
         />
       )}
     </>

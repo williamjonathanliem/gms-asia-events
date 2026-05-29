@@ -6,7 +6,6 @@ import { submitRegistration, type RegisterFormState } from './actions'
 import { type Package } from '@/lib/types/database'
 import type { EventWithPackages, CustomField } from '@/lib/types/database'
 import { resolveCoreFields } from '@/lib/types/database'
-import { GMS_CHURCHES } from '@/lib/constants'
 import { resolveEventCurrency } from '@/lib/currencies'
 import { CurrencyBanner, PackagePrice } from '@/components/registration/PackagePrice'
 import { formatDate } from '@/lib/utils'
@@ -112,15 +111,70 @@ function CustomFieldInput({
   )
 }
 
+// ── Core field renderer ───────────────────────────────────────
+function CoreFieldInput({
+  field,
+  fieldName,
+  error,
+  defaultOptions,
+}: {
+  field: ReturnType<typeof resolveCoreFields>[number]
+  fieldName: string
+  error?: string
+  defaultOptions?: string[]
+}) {
+  const options = field.inputType === 'select'
+    ? (field.options?.length ? field.options : defaultOptions ?? [])
+    : []
+
+  return (
+    <div>
+      <Label htmlFor={fieldName} required={field.required}>
+        {field.label}
+        {!field.required && <span className="font-normal text-muted">&ensp;(optional)</span>}
+      </Label>
+
+      {field.inputType === 'textarea' ? (
+        <textarea
+          id={fieldName}
+          name={fieldName}
+          rows={3}
+          className={cn(
+            'w-full rounded-btn border border-[#E5E5E5] bg-white px-3 py-2 text-sm text-[#111111] placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-[#111111] focus:border-transparent resize-none',
+            error ? 'border-error' : ''
+          )}
+        />
+      ) : field.inputType === 'select' ? (
+        <Select id={fieldName} name={fieldName} defaultValue="" className={error ? 'border-error' : ''}>
+          <option value="" disabled>Select an option</option>
+          {options.map((opt) => (
+            <option key={opt} value={opt}>{opt}</option>
+          ))}
+        </Select>
+      ) : (
+        <Input
+          id={fieldName}
+          name={fieldName}
+          type={field.inputType}
+          className={error ? 'border-error' : ''}
+        />
+      )}
+
+      <FieldError message={error} />
+    </div>
+  )
+}
+
 // ── Main form ─────────────────────────────────────────────────
 interface Props {
   event: EventWithPackages
   packages: Package[]
+  globalChurches: string[]
 }
 
 const initial: RegisterFormState = {}
 
-export default function RegistrationForm({ event, packages }: Props) {
+export default function RegistrationForm({ event, packages, globalChurches }: Props) {
   const [state, action] = useFormState(submitRegistration, initial)
   const [selectedPkg, setSelectedPkg] = useState<string>(packages[0]?.id ?? '')
   const [fileName, setFileName] = useState<string>('')
@@ -174,46 +228,14 @@ export default function RegistrationForm({ event, packages }: Props) {
             <h2 className="text-xs font-semibold uppercase tracking-widest text-[#111111]">
               Personal Information
             </h2>
-
             {cf.full_name?.enabled && (
-              <div>
-                <Label htmlFor="full_name" required={cf.full_name.required}>
-                  {cf.full_name.label}
-                </Label>
-                <Input
-                  id="full_name"
-                  name="full_name"
-                  placeholder="As per ID"
-                  className={fe.full_name ? 'border-error' : ''}
-                />
-                <FieldError message={fe.full_name} />
-              </div>
+              <CoreFieldInput field={cf.full_name} fieldName="full_name" error={fe.full_name} />
             )}
-
             {cf.email?.enabled && (
-              <div>
-                <Label htmlFor="email" required={cf.email.required}>
-                  {cf.email.label}
-                </Label>
-                <Input
-                  id="email"
-                  name="email"
-                  type="email"
-                  placeholder="you@example.com"
-                  className={fe.email ? 'border-error' : ''}
-                />
-                <FieldError message={fe.email} />
-              </div>
+              <CoreFieldInput field={cf.email} fieldName="email" error={fe.email} />
             )}
-
             {cf.phone?.enabled && (
-              <div>
-                <Label htmlFor="phone" required={cf.phone.required}>
-                  {cf.phone.label}
-                  {!cf.phone.required && <span className="font-normal text-muted">&ensp;(optional)</span>}
-                </Label>
-                <Input id="phone" name="phone" type="tel" placeholder="+62 8xx xxxx xxxx" />
-              </div>
+              <CoreFieldInput field={cf.phone} fieldName="phone" error={fe.phone} />
             )}
           </section>
         )}
@@ -224,37 +246,16 @@ export default function RegistrationForm({ event, packages }: Props) {
             <h2 className="text-xs font-semibold uppercase tracking-widest text-[#111111]">
               Church Information
             </h2>
-
             {cf.gms_church?.enabled && (
-              <div>
-                <Label htmlFor="gms_church" required={cf.gms_church.required}>
-                  {cf.gms_church.label}
-                </Label>
-                <Select
-                  id="gms_church"
-                  name="gms_church"
-                  defaultValue=""
-                  className={fe.gms_church ? 'border-error' : ''}
-                >
-                  <option value="" disabled>Select your church branch</option>
-                  {GMS_CHURCHES.map((church) => (
-                    <option key={church} value={church}>
-                      {church}
-                    </option>
-                  ))}
-                </Select>
-                <FieldError message={fe.gms_church} />
-              </div>
+              <CoreFieldInput
+                field={cf.gms_church}
+                fieldName="gms_church"
+                error={fe.gms_church}
+                defaultOptions={globalChurches}
+              />
             )}
-
             {cf.nij?.enabled && (
-              <div>
-                <Label htmlFor="nij" required={cf.nij.required}>
-                  {cf.nij.label}
-                  {!cf.nij.required && <span className="font-normal text-muted">&ensp;(optional)</span>}
-                </Label>
-                <Input id="nij" name="nij" placeholder="e.g. 21004592" />
-              </div>
+              <CoreFieldInput field={cf.nij} fieldName="nij" error={fe.nij} />
             )}
           </section>
         )}

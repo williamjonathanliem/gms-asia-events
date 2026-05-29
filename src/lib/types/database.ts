@@ -13,20 +13,23 @@ export interface CustomField {
 }
 
 export type CoreFieldKey = 'full_name' | 'email' | 'phone' | 'gms_church' | 'nij'
+export type CoreFieldInputType = 'text' | 'email' | 'tel' | 'textarea' | 'select'
 
 export interface CoreField {
   key: CoreFieldKey
   label: string
   required: boolean
   enabled: boolean
+  inputType: CoreFieldInputType
+  options?: string[] // only when inputType === 'select'
 }
 
 export const DEFAULT_CORE_FIELDS: CoreField[] = [
-  { key: 'full_name',   label: 'Full Name',          required: true,  enabled: true },
-  { key: 'email',       label: 'Email Address',       required: true,  enabled: true },
-  { key: 'phone',       label: 'Phone Number',        required: false, enabled: true },
-  { key: 'gms_church',  label: 'GMS Church Branch',   required: true,  enabled: true },
-  { key: 'nij',         label: 'NIJ / Disciple ID',   required: false, enabled: true },
+  { key: 'full_name',  label: 'Full Name',          required: true,  enabled: true, inputType: 'text' },
+  { key: 'email',      label: 'Email Address',       required: true,  enabled: true, inputType: 'email' },
+  { key: 'phone',      label: 'Phone Number',        required: false, enabled: true, inputType: 'tel' },
+  { key: 'gms_church', label: 'GMS Church Branch',   required: true,  enabled: true, inputType: 'select' },
+  { key: 'nij',        label: 'NIJ / Disciple ID',   required: false, enabled: true, inputType: 'text' },
 ]
 
 /** Merge saved overrides with defaults — always returns all 5 fields */

@@ -6,6 +6,7 @@ import {
   createEvent,
   updateEvent,
   deleteEvent,
+  resetEvent,
 } from '@/app/dashboard/events/actions'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -24,6 +25,7 @@ interface Props {
   onClose: () => void
   onEventSaved: (event: EventWithPackages) => void
   onEventDeleted: (id: string) => void
+  globalChurches: string[]
 }
 
 // ── Copy link button ──────────────────────────────────────────
@@ -98,12 +100,14 @@ function Toggle({
 }
 
 // ── Main drawer ───────────────────────────────────────────────
-export default function EventDrawer({ event, onClose, onEventSaved, onEventDeleted }: Props) {
+export default function EventDrawer({ event, onClose, onEventSaved, onEventDeleted, globalChurches }: Props) {
   const isNew = event === null
   const [tab, setTab] = useState<Tab>('details')
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [resetting, setResetting] = useState(false)
+  const [dangerMode, setDangerMode] = useState<'delete' | 'reset' | null>(null)
+  const [dangerInput, setDangerInput] = useState('')
   const [error, setError] = useState<string | null>(null)
 
   // Local state for detail fields
@@ -204,6 +208,17 @@ export default function EventDrawer({ event, onClose, onEventSaved, onEventDelet
     if (res.error) { setError(res.error); return }
     onEventDeleted(event.id)
     onClose()
+  }
+
+  async function handleReset() {
+    if (!event) return
+    setResetting(true)
+    const res = await resetEvent(event.id)
+    setResetting(false)
+    if (res.error) { setError(res.error); return }
+    setDangerMode(null)
+    setDangerInput('')
+    setError(null)
   }
 
   const tabs: { key: Tab; label: string }[] = [
@@ -374,7 +389,7 @@ export default function EventDrawer({ event, onClose, onEventSaved, onEventDelet
                     checked={isActive}
                     onChange={setIsActive}
                     label="Active Event"
-                    description="Marks this as the current event for scanner and dashboards. Only one event can be active."
+                    description="Makes this event visible on the scanner and as a default filter on the registrations dashboard. Multiple events can be active at once."
                   />
                   <Toggle
                     checked={regOpen}
@@ -439,37 +454,114 @@ export default function EventDrawer({ event, onClose, onEventSaved, onEventDelet
                 {saving ? 'Saving…' : isNew ? 'Create Event' : 'Save Details'}
               </button>
 
-              {/* Delete */}
+              {/* ── Danger zone ── */}
               {!isNew && (
-                <div className="border-t border-[#E5E5E5] pt-4">
-                  {!confirmDelete ? (
-                    <button
-                      type="button"
-                      onClick={() => setConfirmDelete(true)}
-                      className="w-full rounded-btn border border-error/40 py-2.5 text-sm font-medium text-error transition-colors hover:bg-error/5"
-                    >
-                      Delete Event
-                    </button>
-                  ) : (
+                <div className="space-y-3 border-t border-[#E5E5E5] pt-5">
+                  <p className="text-xs font-semibold uppercase tracking-widest text-error">
+                    Danger Zone
+                  </p>
+
+                  {dangerMode === null && (
                     <div className="space-y-2">
-                      <p className="text-xs text-muted text-center">
-                        This will permanently delete the event and all its data. Are you sure?
-                      </p>
+                      {/* Reset */}
+                      <div className="flex items-start justify-between gap-4 rounded-lg border border-warning/30 bg-warning/5 px-4 py-3">
+                        <div>
+                          <p className="text-sm font-medium text-[#111111]">Reset Event</p>
+                          <p className="mt-0.5 text-xs text-muted">
+                            Delete all registrations and attendance data. The event itself is kept.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => { setDangerMode('reset'); setDangerInput('') }}
+                          className="shrink-0 rounded-btn border border-warning/40 px-3 py-1.5 text-xs font-medium text-warning hover:bg-warning/10 transition-colors"
+                        >
+                          Reset
+                        </button>
+                      </div>
+
+                      {/* Delete */}
+                      <div className="flex items-start justify-between gap-4 rounded-lg border border-error/30 bg-error/5 px-4 py-3">
+                        <div>
+                          <p className="text-sm font-medium text-[#111111]">Delete Event</p>
+                          <p className="mt-0.5 text-xs text-muted">
+                            Permanently delete this event, all registrations, packages, and form fields.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => { setDangerMode('delete'); setDangerInput('') }}
+                          className="shrink-0 rounded-btn border border-error/40 px-3 py-1.5 text-xs font-medium text-error hover:bg-error/10 transition-colors"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Confirmation panel — shared for both actions */}
+                  {dangerMode !== null && (
+                    <div className={`space-y-4 rounded-lg border p-4 ${
+                      dangerMode === 'delete'
+                        ? 'border-error/30 bg-error/5'
+                        : 'border-warning/30 bg-warning/5'
+                    }`}>
+                      {/* Icon + heading */}
+                      <div className="flex items-start gap-3">
+                        <svg className={`mt-0.5 size-5 shrink-0 ${dangerMode === 'delete' ? 'text-error' : 'text-warning'}`}
+                          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                        </svg>
+                        <div>
+                          <p className={`text-sm font-semibold ${dangerMode === 'delete' ? 'text-error' : 'text-warning'}`}>
+                            {dangerMode === 'delete' ? 'Delete this event?' : 'Reset this event?'}
+                          </p>
+                          <p className="mt-1 text-xs text-muted leading-relaxed">
+                            {dangerMode === 'delete'
+                              ? 'This permanently removes the event, all registrations, attendance logs, packages, and uploaded screenshots. This cannot be undone.'
+                              : 'This permanently removes all registrations, attendance logs, and uploaded screenshots for this event. The event and its packages are kept. This cannot be undone.'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Name confirmation input */}
+                      <div>
+                        <p className="mb-1.5 text-xs text-muted">
+                          Type <strong className="font-semibold text-[#111111]">{event.name}</strong> to confirm
+                        </p>
+                        <input
+                          type="text"
+                          value={dangerInput}
+                          onChange={(e) => setDangerInput(e.target.value)}
+                          placeholder={event.name}
+                          className="w-full rounded-btn border border-[#E5E5E5] bg-white px-3 py-2 text-sm text-[#111111] placeholder:text-muted/40 focus:outline-none focus:ring-2 focus:ring-[#111111] focus:border-transparent"
+                        />
+                      </div>
+
+                      {error && (
+                        <p className="text-xs text-error">{error}</p>
+                      )}
+
                       <div className="flex gap-2">
                         <button
                           type="button"
-                          onClick={() => setConfirmDelete(false)}
-                          className="flex-1 rounded-btn border border-[#E5E5E5] py-2 text-sm text-muted hover:bg-[#fafafa]"
+                          onClick={() => { setDangerMode(null); setDangerInput(''); setError(null) }}
+                          disabled={deleting || resetting}
+                          className="flex-1 rounded-btn border border-[#E5E5E5] py-2 text-sm text-muted hover:bg-white disabled:opacity-40"
                         >
                           Cancel
                         </button>
                         <button
                           type="button"
-                          onClick={handleDelete}
-                          disabled={deleting}
-                          className="flex-1 rounded-btn bg-error py-2 text-sm font-medium text-white hover:opacity-80 disabled:opacity-40"
+                          onClick={dangerMode === 'delete' ? handleDelete : handleReset}
+                          disabled={dangerInput !== event.name || deleting || resetting}
+                          className={`flex-1 rounded-btn py-2 text-sm font-medium text-white transition-opacity hover:opacity-80 disabled:opacity-40 ${
+                            dangerMode === 'delete' ? 'bg-error' : 'bg-warning'
+                          }`}
                         >
-                          {deleting ? 'Deleting…' : 'Yes, Delete'}
+                          {dangerMode === 'delete'
+                            ? (deleting ? 'Deleting…' : 'Delete Event')
+                            : (resetting ? 'Resetting…' : 'Reset Event')}
                         </button>
                       </div>
                     </div>
@@ -502,6 +594,7 @@ export default function EventDrawer({ event, onClose, onEventSaved, onEventDelet
                   eventId={event.id}
                   fields={localCoreFields}
                   onChange={setLocalCoreFields}
+                  globalChurches={globalChurches}
                 />
               </div>
 

@@ -88,11 +88,6 @@ export async function updateEvent(
       return { error: 'Early bird end date is required when Auto change is enabled.' }
     }
 
-    // Deactivate all other events first if setting this one active
-    if (data.is_active === true) {
-      await supabase.from('events').update({ is_active: false }).neq('id', id)
-    }
-
     const { error } = await supabase.from('events').update(data).eq('id', id)
     if (error) return { error: error.message }
     revalidatePath('/dashboard/events')
@@ -109,9 +104,46 @@ export async function deleteEvent(id: string): Promise<{ error?: string }> {
     const { error } = await supabase.from('events').delete().eq('id', id)
     if (error) return { error: error.message }
     revalidatePath('/dashboard/events')
+    revalidatePath('/dashboard/registrations')
     return {}
   } catch (e: any) {
     return { error: e.message }
+  }
+}
+
+export async function resetEvent(id: string): Promise<{ error?: string; deleted: number }> {
+  try {
+    await requireSuperAdmin()
+    const supabase = createServiceClient()
+
+    // Fetch all registrations so we can clean up storage too
+    const { data: regs } = await supabase
+      .from('registrations')
+      .select('id, payment_screenshot_url')
+      .eq('event_id', id)
+
+    const regsData = regs ?? []
+
+    // Delete attendance logs first (FK constraint)
+    await supabase.from('attendance_logs').delete().eq('event_id', id)
+
+    // Delete registrations
+    const { error } = await supabase.from('registrations').delete().eq('event_id', id)
+    if (error) return { error: error.message, deleted: 0 }
+
+    // Best-effort: remove payment screenshots from storage
+    const paths = regsData
+      .map((r) => r.payment_screenshot_url)
+      .filter(Boolean) as string[]
+    if (paths.length > 0) {
+      await supabase.storage.from('payment-screenshots').remove(paths)
+    }
+
+    revalidatePath('/dashboard/registrations')
+    revalidatePath('/dashboard/events')
+    return { deleted: regsData.length }
+  } catch (e: any) {
+    return { error: e.message, deleted: 0 }
   }
 }
 

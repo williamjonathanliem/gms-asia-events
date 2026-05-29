@@ -63,14 +63,16 @@ export default async function RegistrationsPage({
     activeEventName = data?.name ?? ''
     activeEventDate = data?.date ?? ''
   } else {
-    const { data } = await supabase
+    const { data: activeEvents } = await supabase
       .from('events')
       .select('id, name, date')
       .eq('is_active', true)
-      .maybeSingle()
-    activeEventId = data?.id ?? null
-    activeEventName = data?.name ?? ''
-    activeEventDate = data?.date ?? ''
+      .order('date', { ascending: false })
+      .limit(1)
+    const activeEvent = activeEvents?.[0] ?? null
+    activeEventId = activeEvent?.id ?? null
+    activeEventName = activeEvent?.name ?? ''
+    activeEventDate = activeEvent?.date ?? ''
   }
 
   // ── Which event(s) registrations query uses ───────────────────
