@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { signOut } from '@/app/auth/login/actions'
 import { cn } from '@/lib/utils'
@@ -80,7 +81,15 @@ export default function Sidebar({ staff }: Props) {
     <aside className="fixed inset-y-0 left-0 z-30 flex w-64 flex-col border-r border-[#E5E5E5] bg-white">
       {/* Brand */}
       <div className="flex h-16 items-center border-b border-[#E5E5E5] px-6">
-        <span className="flex-1 text-sm font-semibold text-[#111111]">GMS Events</span>
+        <div className="flex flex-1 items-center gap-2.5">
+          <Image
+            src="/gms-logo.png"
+            alt="GMS"
+            width={40}
+            height={40}
+          />
+          <span className="text-sm font-semibold text-[#111111]">GMS Events</span>
+        </div>
         {/* Close button shown only on mobile via CSS in DashboardShell */}
       </div>
 
