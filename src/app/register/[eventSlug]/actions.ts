@@ -6,6 +6,7 @@ import { STORAGE_BUCKET } from '@/lib/constants'
 import { sendConfirmationEmail } from '@/lib/email'
 import { resolveRegistrationPricing } from '@/lib/pricing'
 import type { CustomField } from '@/lib/types/database'
+import { resolveCoreFields } from '@/lib/types/database'
 
 export type RegisterFormState = {
   error?: string
@@ -28,18 +29,7 @@ export async function submitRegistration(
   const event_id = formData.get('event_id') as string
   const file = formData.get('payment_screenshot')
 
-  // ── Core validation ──────────────────────────────────────────
   const fieldErrors: Record<string, string> = {}
-
-  if (!full_name) fieldErrors.full_name = 'Full name is required'
-
-  if (!email) {
-    fieldErrors.email = 'Email is required'
-  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    fieldErrors.email = 'Please enter a valid email address'
-  }
-
-  if (!gms_church) fieldErrors.gms_church = 'Please select your church branch'
 
   if (!(file instanceof File) || file.size === 0) {
     fieldErrors.payment_screenshot = 'Payment screenshot is required'
@@ -49,16 +39,47 @@ export async function submitRegistration(
     fieldErrors.payment_screenshot = 'Only JPG, PNG, or WebP images are accepted'
   }
 
-  // ── Custom field validation ───────────────────────────────────
+  // ── Fetch event config (core_fields + custom_fields) ─────────
   const supabase = createServiceClient()
 
   const { data: eventData } = await supabase
     .from('events')
     .select(
-      'custom_fields, registration_open, early_bird_enabled, early_bird_auto_change, early_bird_end_date'
+      'custom_fields, core_fields, registration_open, early_bird_enabled, early_bird_auto_change, early_bird_end_date'
     )
     .eq('id', event_id)
     .single()
+
+  // ── Core field validation (respects per-event config) ─────────
+  const coreFields = resolveCoreFields((eventData as any)?.core_fields)
+  const cf = Object.fromEntries(coreFields.map((f) => [f.key, f]))
+
+  if (cf.full_name?.enabled) {
+    if (!full_name) fieldErrors.full_name = `${cf.full_name.label} is required`
+  }
+
+  if (cf.email?.enabled) {
+    if (!email) {
+      fieldErrors.email = `${cf.email.label} is required`
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      fieldErrors.email = 'Please enter a valid email address'
+    }
+  } else if (!email) {
+    // email is always required even if hidden (needed for QR/comms)
+    fieldErrors.email = 'Email is required'
+  }
+
+  if (cf.gms_church?.enabled && cf.gms_church?.required && !gms_church) {
+    fieldErrors.gms_church = `Please select your ${cf.gms_church.label}`
+  }
+
+  if (cf.phone?.enabled && cf.phone?.required && !phone) {
+    fieldErrors.phone = `${cf.phone.label} is required`
+  }
+
+  if (cf.nij?.enabled && cf.nij?.required && !nij) {
+    fieldErrors.nij = `${cf.nij.label} is required`
+  }
 
   if (!eventData?.registration_open) {
     return { error: 'Registration for this event is closed.' }

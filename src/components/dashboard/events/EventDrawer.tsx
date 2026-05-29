@@ -14,7 +14,8 @@ import { EVENT_CURRENCIES, DEFAULT_EVENT_CURRENCY } from '@/lib/currencies'
 import { cn } from '@/lib/utils'
 import PackageEditor from './PackageEditor'
 import CustomFieldsBuilder from './CustomFieldsBuilder'
-import type { EventWithPackages, CustomField, Package } from '@/lib/types/database'
+import CoreFieldsEditor from './CoreFieldsEditor'
+import type { EventWithPackages, CustomField, CoreField, Package } from '@/lib/types/database'
 
 type Tab = 'details' | 'packages' | 'fields'
 
@@ -122,9 +123,10 @@ export default function EventDrawer({ event, onClose, onEventSaved, onEventDelet
     event?.currency ?? DEFAULT_EVENT_CURRENCY
   )
 
-  // Local packages + custom_fields for sub-editors
+  // Local packages + fields for sub-editors
   const [localPackages, setLocalPackages] = useState<Package[]>(event?.packages ?? [])
   const [localFields, setLocalFields] = useState<CustomField[]>(event?.custom_fields ?? [])
+  const [localCoreFields, setLocalCoreFields] = useState<CoreField[] | null>(event?.core_fields ?? null)
 
   // Auto-derive slug from name if user hasn't manually edited it
   useEffect(() => {
@@ -207,7 +209,7 @@ export default function EventDrawer({ event, onClose, onEventSaved, onEventDelet
   const tabs: { key: Tab; label: string }[] = [
     { key: 'details', label: 'Details' },
     { key: 'packages', label: `Packages (${localPackages.length})` },
-    { key: 'fields', label: `Custom Fields (${localFields.length})` },
+    { key: 'fields', label: 'Form Fields' },
   ]
 
   return (
@@ -488,13 +490,33 @@ export default function EventDrawer({ event, onClose, onEventSaved, onEventDelet
             />
           )}
 
-          {/* ── Custom Fields tab ── */}
+          {/* ── Form Fields tab ── */}
           {!isNew && tab === 'fields' && (
-            <CustomFieldsBuilder
-              eventId={event.id}
-              fields={localFields}
-              onChange={setLocalFields}
-            />
+            <div className="space-y-0">
+              {/* Core fields section */}
+              <div className="px-6 py-5 border-b border-[#E5E5E5]">
+                <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-muted">
+                  Core Fields
+                </p>
+                <CoreFieldsEditor
+                  eventId={event.id}
+                  fields={localCoreFields}
+                  onChange={setLocalCoreFields}
+                />
+              </div>
+
+              {/* Custom fields section */}
+              <div className="px-6 py-5">
+                <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-muted">
+                  Additional Fields
+                </p>
+                <CustomFieldsBuilder
+                  eventId={event.id}
+                  fields={localFields}
+                  onChange={setLocalFields}
+                />
+              </div>
+            </div>
           )}
         </div>
       </div>

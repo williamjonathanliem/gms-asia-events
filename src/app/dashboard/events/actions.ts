@@ -5,7 +5,7 @@ import { getCurrentStaffUser } from '@/lib/supabase/auth'
 import { revalidatePath } from 'next/cache'
 import { slugify } from '@/lib/utils'
 import { DEFAULT_EVENT_CURRENCY, isValidEventCurrency } from '@/lib/currencies'
-import type { CustomField, EventWithPackages, Package } from '@/lib/types/database'
+import type { CoreField, CustomField, EventWithPackages, Package } from '@/lib/types/database'
 
 async function requireSuperAdmin() {
   const staff = await getCurrentStaffUser()
@@ -193,6 +193,27 @@ export async function deletePackage(id: string): Promise<{ error?: string }> {
     await requireSuperAdmin()
     const supabase = createServiceClient()
     const { error } = await supabase.from('packages').delete().eq('id', id)
+    if (error) return { error: error.message }
+    revalidatePath('/dashboard/events')
+    return {}
+  } catch (e: any) {
+    return { error: e.message }
+  }
+}
+
+// ── Core Fields ───────────────────────────────────────────────
+
+export async function updateCoreFields(
+  eventId: string,
+  fields: CoreField[]
+): Promise<{ error?: string }> {
+  try {
+    await requireSuperAdmin()
+    const supabase = createServiceClient()
+    const { error } = await supabase
+      .from('events')
+      .update({ core_fields: fields })
+      .eq('id', eventId)
     if (error) return { error: error.message }
     revalidatePath('/dashboard/events')
     return {}

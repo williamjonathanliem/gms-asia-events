@@ -28,7 +28,7 @@ export default async function RegisterPage({ params }: Props) {
   const { data: event } = await supabase
     .from('events')
     .select(
-      '*, currency, early_bird_enabled, early_bird_auto_change, early_bird_end_date'
+      '*, currency, early_bird_enabled, early_bird_auto_change, early_bird_end_date, core_fields'
     )
     .eq('slug', params.eventSlug)
     .eq('is_active', true)

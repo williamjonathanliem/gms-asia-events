@@ -339,7 +339,7 @@ export default function CustomFieldsBuilder({ eventId, fields, onChange }: Props
   }
 
   return (
-    <div className="space-y-4 px-6 py-6">
+    <div className="space-y-4">
       {error && (
         <p className="rounded-lg border border-error/30 bg-error/5 px-4 py-3 text-xs text-error">
           {error}

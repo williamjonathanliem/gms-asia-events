@@ -5,6 +5,7 @@ import { useRef, useState } from 'react'
 import { submitRegistration, type RegisterFormState } from './actions'
 import { type Package } from '@/lib/types/database'
 import type { EventWithPackages, CustomField } from '@/lib/types/database'
+import { resolveCoreFields } from '@/lib/types/database'
 import { GMS_CHURCHES } from '@/lib/constants'
 import { resolveEventCurrency } from '@/lib/currencies'
 import { CurrencyBanner, PackagePrice } from '@/components/registration/PackagePrice'
@@ -127,6 +128,8 @@ export default function RegistrationForm({ event, packages }: Props) {
 
   const fe = state.fieldErrors ?? {}
   const customFields: CustomField[] = event.custom_fields ?? []
+  const coreFields = resolveCoreFields(event.core_fields)
+  const cf = Object.fromEntries(coreFields.map((f) => [f.key, f]))
 
   const headingText = event.form_title || event.name
   const subtitleText = event.form_subtitle
@@ -166,75 +169,95 @@ export default function RegistrationForm({ event, packages }: Props) {
         )}
 
         {/* ── Section: Personal Information ── */}
-        <section className="space-y-5">
-          <h2 className="text-xs font-semibold uppercase tracking-widest text-[#111111]">
-            Personal Information
-          </h2>
+        {(cf.full_name?.enabled || cf.email?.enabled || cf.phone?.enabled) && (
+          <section className="space-y-5">
+            <h2 className="text-xs font-semibold uppercase tracking-widest text-[#111111]">
+              Personal Information
+            </h2>
 
-          <div>
-            <Label htmlFor="full_name" required>Full Name</Label>
-            <Input
-              id="full_name"
-              name="full_name"
-              placeholder="As per ID"
-              className={fe.full_name ? 'border-error' : ''}
-            />
-            <FieldError message={fe.full_name} />
-          </div>
+            {cf.full_name?.enabled && (
+              <div>
+                <Label htmlFor="full_name" required={cf.full_name.required}>
+                  {cf.full_name.label}
+                </Label>
+                <Input
+                  id="full_name"
+                  name="full_name"
+                  placeholder="As per ID"
+                  className={fe.full_name ? 'border-error' : ''}
+                />
+                <FieldError message={fe.full_name} />
+              </div>
+            )}
 
-          <div>
-            <Label htmlFor="email" required>Email Address</Label>
-            <Input
-              id="email"
-              name="email"
-              type="email"
-              placeholder="you@example.com"
-              className={fe.email ? 'border-error' : ''}
-            />
-            <FieldError message={fe.email} />
-          </div>
+            {cf.email?.enabled && (
+              <div>
+                <Label htmlFor="email" required={cf.email.required}>
+                  {cf.email.label}
+                </Label>
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  placeholder="you@example.com"
+                  className={fe.email ? 'border-error' : ''}
+                />
+                <FieldError message={fe.email} />
+              </div>
+            )}
 
-          <div>
-            <Label htmlFor="phone">
-              Phone Number&ensp;
-              <span className="font-normal text-muted">(optional)</span>
-            </Label>
-            <Input id="phone" name="phone" type="tel" placeholder="+62 8xx xxxx xxxx" />
-          </div>
-        </section>
+            {cf.phone?.enabled && (
+              <div>
+                <Label htmlFor="phone" required={cf.phone.required}>
+                  {cf.phone.label}
+                  {!cf.phone.required && <span className="font-normal text-muted">&ensp;(optional)</span>}
+                </Label>
+                <Input id="phone" name="phone" type="tel" placeholder="+62 8xx xxxx xxxx" />
+              </div>
+            )}
+          </section>
+        )}
 
         {/* ── Section: Church Information ── */}
-        <section className="space-y-5">
-          <h2 className="text-xs font-semibold uppercase tracking-widest text-[#111111]">
-            Church Information
-          </h2>
+        {(cf.gms_church?.enabled || cf.nij?.enabled) && (
+          <section className="space-y-5">
+            <h2 className="text-xs font-semibold uppercase tracking-widest text-[#111111]">
+              Church Information
+            </h2>
 
-          <div>
-            <Label htmlFor="gms_church" required>GMS Church Branch</Label>
-            <Select
-              id="gms_church"
-              name="gms_church"
-              defaultValue=""
-              className={fe.gms_church ? 'border-error' : ''}
-            >
-              <option value="" disabled>Select your church branch</option>
-              {GMS_CHURCHES.map((church) => (
-                <option key={church} value={church}>
-                  {church}
-                </option>
-              ))}
-            </Select>
-            <FieldError message={fe.gms_church} />
-          </div>
+            {cf.gms_church?.enabled && (
+              <div>
+                <Label htmlFor="gms_church" required={cf.gms_church.required}>
+                  {cf.gms_church.label}
+                </Label>
+                <Select
+                  id="gms_church"
+                  name="gms_church"
+                  defaultValue=""
+                  className={fe.gms_church ? 'border-error' : ''}
+                >
+                  <option value="" disabled>Select your church branch</option>
+                  {GMS_CHURCHES.map((church) => (
+                    <option key={church} value={church}>
+                      {church}
+                    </option>
+                  ))}
+                </Select>
+                <FieldError message={fe.gms_church} />
+              </div>
+            )}
 
-          <div>
-            <Label htmlFor="nij">
-              NIJ / Disciple ID&ensp;
-              <span className="font-normal text-muted">(optional)</span>
-            </Label>
-            <Input id="nij" name="nij" placeholder="e.g. 21004592" />
-          </div>
-        </section>
+            {cf.nij?.enabled && (
+              <div>
+                <Label htmlFor="nij" required={cf.nij.required}>
+                  {cf.nij.label}
+                  {!cf.nij.required && <span className="font-normal text-muted">&ensp;(optional)</span>}
+                </Label>
+                <Input id="nij" name="nij" placeholder="e.g. 21004592" />
+              </div>
+            )}
+          </section>
+        )}
 
         {/* ── Section: Custom Fields ── */}
         {customFields.length > 0 && (

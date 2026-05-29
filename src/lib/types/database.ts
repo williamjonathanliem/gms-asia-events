@@ -12,6 +12,32 @@ export interface CustomField {
   options?: string[] // only for type='select'
 }
 
+export type CoreFieldKey = 'full_name' | 'email' | 'phone' | 'gms_church' | 'nij'
+
+export interface CoreField {
+  key: CoreFieldKey
+  label: string
+  required: boolean
+  enabled: boolean
+}
+
+export const DEFAULT_CORE_FIELDS: CoreField[] = [
+  { key: 'full_name',   label: 'Full Name',          required: true,  enabled: true },
+  { key: 'email',       label: 'Email Address',       required: true,  enabled: true },
+  { key: 'phone',       label: 'Phone Number',        required: false, enabled: true },
+  { key: 'gms_church',  label: 'GMS Church Branch',   required: true,  enabled: true },
+  { key: 'nij',         label: 'NIJ / Disciple ID',   required: false, enabled: true },
+]
+
+/** Merge saved overrides with defaults — always returns all 5 fields */
+export function resolveCoreFields(saved: CoreField[] | null | undefined): CoreField[] {
+  if (!saved || saved.length === 0) return DEFAULT_CORE_FIELDS
+  return DEFAULT_CORE_FIELDS.map((def) => {
+    const override = saved.find((f) => f.key === def.key)
+    return override ?? def
+  })
+}
+
 export interface Event {
   id: string
   name: string
@@ -23,6 +49,7 @@ export interface Event {
   form_subtitle: string | null
   registration_open: boolean
   custom_fields: CustomField[]
+  core_fields: CoreField[] | null
   early_bird_enabled: boolean
   early_bird_auto_change: boolean
   early_bird_end_date: string | null
