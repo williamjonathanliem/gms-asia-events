@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
+import InstallButton from '@/components/pwa/InstallButton'
 
 function SubmitButton() {
   const { pending } = useFormStatus()
@@ -86,6 +87,8 @@ export default function LoginPage() {
         <Suspense>
           <LoginForm />
         </Suspense>
+
+        <InstallButton variant="banner" />
       </div>
     </main>
   )

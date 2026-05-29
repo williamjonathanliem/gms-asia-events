@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { signOut } from '@/app/auth/login/actions'
 import { cn } from '@/lib/utils'
+import InstallButton from '@/components/pwa/InstallButton'
 import type { StaffUser } from '@/lib/types/database'
 
 interface NavItem {
@@ -92,7 +93,7 @@ export default function Sidebar({ staff }: Props) {
       <div className="flex h-16 items-center border-b border-[#E5E5E5] px-6">
         <div className="flex flex-1 items-center gap-2.5">
           <Image
-            src="/gms-logo.png"
+            src="/gmschurch_logo.jpg"
             alt="GMS"
             width={40}
             height={40}
@@ -126,6 +127,7 @@ export default function Sidebar({ staff }: Props) {
 
       {/* User + sign out */}
       <div className="border-t border-[#E5E5E5] px-3 py-4 space-y-1">
+        <InstallButton variant="button" />
         <div className="px-3 py-2">
           <p className="text-xs font-medium text-[#111111] truncate">{staff.email}</p>
           <p className="text-xs text-muted capitalize">{staff.role.replace('_', ' ')}</p>
