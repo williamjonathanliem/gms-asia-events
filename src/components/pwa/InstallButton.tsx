@@ -50,7 +50,7 @@ export default function InstallButton({ variant = 'button' }: Props) {
     if (outcome === 'accepted') setState('installed')
   }
 
-  if (state === 'hidden') return null
+  // 'hidden' = desktop or prompt not yet fired — show a static fallback
 
   const downloadIcon = (
     <svg className="size-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -70,6 +70,14 @@ export default function InstallButton({ variant = 'button' }: Props) {
               {state === 'installed' ? 'Scanner app is installed on this device' : 'Install the scanner app on your device'}
             </p>
           </div>
+          {state === 'hidden' && (
+            <Link
+              href="/scan"
+              className="shrink-0 rounded-btn bg-[#111111] px-3 py-1.5 text-xs font-medium text-white hover:opacity-80 transition-opacity"
+            >
+              Open
+            </Link>
+          )}
           {state === 'installed' && (
             <Link
               href="/scan"
@@ -109,6 +117,15 @@ export default function InstallButton({ variant = 'button' }: Props) {
   // ── Button variant (dashboard sidebar) ───────────────────────
   return (
     <div className="px-3 pb-2 space-y-2">
+      {state === 'hidden' && (
+        <Link
+          href="/scan"
+          className="flex w-full items-center gap-3 rounded-btn border border-[#E5E5E5] px-3 py-2 text-sm text-muted transition-colors hover:bg-[#f5f5f5] hover:text-[#111111]"
+        >
+          {downloadIcon}
+          Scanner App
+        </Link>
+      )}
       {state === 'installed' && (
         <Link
           href="/scan"
