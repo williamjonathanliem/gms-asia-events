@@ -7,9 +7,10 @@ import { cn } from '@/lib/utils'
 interface Props {
   sidebar: React.ReactNode
   children: React.ReactNode
+  activeEvents: { id: string; name: string; date: string }[]
 }
 
-export default function DashboardShell({ sidebar, children }: Props) {
+export default function DashboardShell({ sidebar, children, activeEvents }: Props) {
   const [open, setOpen] = useState(false)
 
   return (
@@ -46,7 +47,14 @@ export default function DashboardShell({ sidebar, children }: Props) {
             </svg>
           </button>
           <Image src="/gmschurch_logo.jpg" alt="GMS" width={28} height={28} className="shrink-0" />
-          <span className="text-sm font-semibold text-[#111111]">GMS Events</span>
+          <div className="flex min-w-0 flex-1 flex-col justify-center">
+            <span className="text-sm font-semibold text-[#111111] leading-none">GMS Events</span>
+            {activeEvents.length > 0 && (
+              <span className="mt-0.5 truncate text-xs text-muted leading-none">
+                {activeEvents[0].name}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Page content */}

@@ -4,7 +4,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { signOut } from '@/app/auth/login/actions'
-import { cn } from '@/lib/utils'
+import { cn, formatDate } from '@/lib/utils'
 import InstallButton from '@/components/pwa/InstallButton'
 import type { StaffUser } from '@/lib/types/database'
 
@@ -60,9 +60,10 @@ const iconSignOut = (
 
 interface Props {
   staff: StaffUser
+  activeEvents: { id: string; name: string; date: string }[]
 }
 
-export default function Sidebar({ staff }: Props) {
+export default function Sidebar({ staff, activeEvents }: Props) {
   const pathname = usePathname()
   const isSuperAdmin = staff.role === 'super_admin'
   const canScan = ['super_admin', 'admin', 'scanner'].includes(staff.role)
@@ -102,6 +103,24 @@ export default function Sidebar({ staff }: Props) {
         </div>
         {/* Close button shown only on mobile via CSS in DashboardShell */}
       </div>
+
+      {/* Active event indicator */}
+      {activeEvents.length > 0 && (
+        <div className="border-b border-[#E5E5E5] px-4 py-3 space-y-1.5">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-muted">
+            Active Event{activeEvents.length > 1 ? 's' : ''}
+          </p>
+          {activeEvents.map((ev) => (
+            <div key={ev.id} className="flex items-start gap-2">
+              <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-success" />
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-[#111111] leading-snug truncate">{ev.name}</p>
+                <p className="text-[10px] text-muted leading-snug">{formatDate(ev.date)}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Nav */}
       <nav className="flex-1 space-y-0.5 px-3 py-4">
