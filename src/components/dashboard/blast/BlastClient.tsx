@@ -2,16 +2,24 @@
 
 import { useState, useEffect, useTransition } from 'react'
 import dynamic from 'next/dynamic'
-import { sendEmailBlast, previewBlastRecipients, type BlastFilters, type EmailBlast } from '@/app/dashboard/blast/actions'
+import {
+  sendEmailBlast,
+  previewBlastRecipients,
+  type BlastFilters,
+  type RecipientMode,
+  type EmailBlast,
+} from '@/app/dashboard/blast/actions'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select'
 import { formatDateTime } from '@/lib/utils'
 
-// Load editor client-side only (SSR incompatible)
-const RichEditor = dynamic(() => import('./RichEditor'), { ssr: false, loading: () => (
-  <div className="h-[316px] animate-pulse rounded-btn border border-[#E5E5E5] bg-[#fafafa]" />
-)})
+const RichEditor = dynamic(() => import('./RichEditor'), {
+  ssr: false,
+  loading: () => (
+    <div className="h-[316px] animate-pulse rounded-btn border border-[#E5E5E5] bg-[#fafafa]" />
+  ),
+})
 
 interface Props {
   events: { id: string; name: string; date: string }[]
@@ -27,35 +35,56 @@ const DEFAULT_FILTERS: BlastFilters = {
   church: 'all',
 }
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+function parseEmails(raw: string): string[] {
+  return raw
+    .split(/[\n,;]+/)
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean)
+}
+
 export default function BlastClient({ events, packages, churches, initialBlasts }: Props) {
   const [tab, setTab] = useState<'compose' | 'history'>('compose')
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
+  const [recipientMode, setRecipientMode] = useState<RecipientMode>('filters')
   const [filters, setFilters] = useState<BlastFilters>(DEFAULT_FILTERS)
+  const [emailInput, setEmailInput] = useState('')
   const [recipientCount, setRecipientCount] = useState<number | null>(null)
+  const [invalidEmails, setInvalidEmails] = useState<string[]>([])
   const [sending, setSending] = useState(false)
   const [sent, setSent] = useState<{ count: number } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [blasts, setBlasts] = useState<EmailBlast[]>(initialBlasts)
   const [previewing, startPreview] = useTransition()
 
-  // Filter packages by selected event
   const visiblePackages = filters.eventId === 'all'
     ? packages
     : packages.filter((p) => p.event_id === filters.eventId)
 
-  // Re-preview whenever filters change
+  // Parse + validate email list
+  const parsedEmails = parseEmails(emailInput)
+  const validEmails = parsedEmails.filter((e) => EMAIL_RE.test(e))
+
+  // Live preview
   useEffect(() => {
+    if (recipientMode === 'emails') {
+      const invalid = parsedEmails.filter((e) => e && !EMAIL_RE.test(e))
+      setInvalidEmails(invalid)
+      setRecipientCount(new Set(validEmails).size)
+      return
+    }
     startPreview(async () => {
-      const res = await previewBlastRecipients(filters)
+      const res = await previewBlastRecipients('filters', filters, [])
       setRecipientCount(res.count)
     })
-  }, [filters])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters, recipientMode, emailInput])
 
   function setFilter<K extends keyof BlastFilters>(key: K, val: BlastFilters[K]) {
     setFilters((prev) => {
       const next = { ...prev, [key]: val }
-      // Reset package if event changes
       if (key === 'eventId') next.packageId = 'all'
       return next
     })
@@ -65,17 +94,30 @@ export default function BlastClient({ events, packages, churches, initialBlasts 
     setError(null)
     setSent(null)
     setSending(true)
-    const res = await sendEmailBlast(subject, body, filters)
+    const res = await sendEmailBlast(
+      subject,
+      body,
+      recipientMode,
+      filters,
+      recipientMode === 'emails' ? validEmails : []
+    )
     setSending(false)
     if (res.error) { setError(res.error); return }
     setSent({ count: res.sent })
     setSubject('')
     setBody('')
     setFilters(DEFAULT_FILTERS)
-    // Refresh history
+    setEmailInput('')
     const { getEmailBlasts } = await import('@/app/dashboard/blast/actions')
     setBlasts(await getEmailBlasts())
   }
+
+  const canSend =
+    !sending &&
+    subject.trim() &&
+    body.trim() &&
+    body !== '<p></p>' &&
+    (recipientCount ?? 0) > 0
 
   return (
     <div className="space-y-0">
@@ -97,7 +139,7 @@ export default function BlastClient({ events, packages, churches, initialBlasts 
         ))}
       </div>
 
-      {/* ── Compose tab ── */}
+      {/* ── Compose ── */}
       {tab === 'compose' && (
         <div className="space-y-6 pt-6">
           {error && (
@@ -120,9 +162,9 @@ export default function BlastClient({ events, packages, churches, initialBlasts 
             />
           </div>
 
-          {/* Filters */}
-          <div className="space-y-4 rounded-lg border border-[#E5E5E5] bg-[#fafafa] p-4">
-            <div className="flex items-center justify-between">
+          {/* Recipient mode toggle */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
               <p className="text-xs font-semibold uppercase tracking-widest text-muted">Recipients</p>
               <span className="text-xs text-muted">
                 {previewing ? 'Counting…' : recipientCount !== null ? (
@@ -133,47 +175,99 @@ export default function BlastClient({ events, packages, churches, initialBlasts 
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label htmlFor="f-event">Event</Label>
-                <Select id="f-event" value={filters.eventId} onChange={(e) => setFilter('eventId', e.target.value)}>
-                  <option value="all">All events</option>
-                  {events.map((ev) => (
-                    <option key={ev.id} value={ev.id}>{ev.name}</option>
-                  ))}
-                </Select>
-              </div>
-
-              <div>
-                <Label htmlFor="f-status">Payment Status</Label>
-                <Select id="f-status" value={filters.status} onChange={(e) => setFilter('status', e.target.value as BlastFilters['status'])}>
-                  <option value="all">All statuses</option>
-                  <option value="verified">Verified</option>
-                  <option value="pending">Pending</option>
-                  <option value="rejected">Rejected</option>
-                </Select>
-              </div>
-
-              <div>
-                <Label htmlFor="f-pkg">Package</Label>
-                <Select id="f-pkg" value={filters.packageId} onChange={(e) => setFilter('packageId', e.target.value)}>
-                  <option value="all">All packages</option>
-                  {visiblePackages.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </Select>
-              </div>
-
-              <div>
-                <Label htmlFor="f-church">Church</Label>
-                <Select id="f-church" value={filters.church} onChange={(e) => setFilter('church', e.target.value)}>
-                  <option value="all">All churches</option>
-                  {churches.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </Select>
-              </div>
+            {/* Mode pills */}
+            <div className="mb-4 flex gap-2">
+              {(['filters', 'emails'] as RecipientMode[]).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setRecipientMode(m)}
+                  className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                    recipientMode === m
+                      ? 'border-[#111111] bg-[#111111] text-white'
+                      : 'border-[#E5E5E5] text-muted hover:border-[#999] hover:text-[#111111]'
+                  }`}
+                >
+                  {m === 'filters' ? 'By filters' : 'By email list'}
+                </button>
+              ))}
             </div>
+
+            {/* Filters panel */}
+            {recipientMode === 'filters' && (
+              <div className="rounded-lg border border-[#E5E5E5] bg-[#fafafa] p-4 space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor="f-event">Event</Label>
+                    <Select id="f-event" value={filters.eventId} onChange={(e) => setFilter('eventId', e.target.value)}>
+                      <option value="all">All events</option>
+                      {events.map((ev) => (
+                        <option key={ev.id} value={ev.id}>{ev.name}</option>
+                      ))}
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="f-status">Payment Status</Label>
+                    <Select id="f-status" value={filters.status} onChange={(e) => setFilter('status', e.target.value as BlastFilters['status'])}>
+                      <option value="all">All statuses</option>
+                      <option value="verified">Verified</option>
+                      <option value="pending">Pending</option>
+                      <option value="rejected">Rejected</option>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="f-pkg">Package</Label>
+                    <Select id="f-pkg" value={filters.packageId} onChange={(e) => setFilter('packageId', e.target.value)}>
+                      <option value="all">All packages</option>
+                      {visiblePackages.map((p) => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="f-church">Church</Label>
+                    <Select id="f-church" value={filters.church} onChange={(e) => setFilter('church', e.target.value)}>
+                      <option value="all">All churches</option>
+                      {churches.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Email list panel */}
+            {recipientMode === 'emails' && (
+              <div className="space-y-2">
+                <textarea
+                  value={emailInput}
+                  onChange={(e) => setEmailInput(e.target.value)}
+                  placeholder={`Paste or type email addresses, one per line or comma-separated:\n\njohn@example.com\njane@example.com, bob@example.com`}
+                  rows={6}
+                  className="w-full rounded-btn border border-[#E5E5E5] bg-white px-3 py-2.5 text-sm text-[#111111] placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-[#111111] focus:border-transparent resize-none font-mono"
+                />
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted">
+                    Separate with newlines, commas, or semicolons
+                  </span>
+                  {parsedEmails.length > 0 && (
+                    <span className="text-muted">
+                      <span className="text-[#111111] font-medium">{validEmails.length}</span> valid
+                      {invalidEmails.length > 0 && (
+                        <span className="text-error ml-2">· {invalidEmails.length} invalid</span>
+                      )}
+                    </span>
+                  )}
+                </div>
+                {invalidEmails.length > 0 && (
+                  <div className="rounded-lg border border-error/20 bg-error/5 px-3 py-2">
+                    <p className="text-xs font-medium text-error mb-1">Invalid addresses (will be skipped):</p>
+                    <p className="text-xs text-error/80 font-mono break-all">{invalidEmails.join(', ')}</p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Body */}
@@ -186,7 +280,7 @@ export default function BlastClient({ events, packages, churches, initialBlasts 
           <button
             type="button"
             onClick={handleSend}
-            disabled={sending || !subject.trim() || !body.trim() || body === '<p></p>' || recipientCount === 0}
+            disabled={!canSend}
             className="w-full rounded-btn bg-[#111111] py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-80 disabled:opacity-40"
           >
             {sending ? (
@@ -197,14 +291,14 @@ export default function BlastClient({ events, packages, churches, initialBlasts 
                 </svg>
                 Sending…
               </span>
-            ) : recipientCount !== null
+            ) : recipientCount !== null && recipientCount > 0
               ? `Send to ${recipientCount} recipient${recipientCount !== 1 ? 's' : ''}`
               : 'Send'}
           </button>
         </div>
       )}
 
-      {/* ── History tab ── */}
+      {/* ── History ── */}
       {tab === 'history' && (
         <div className="pt-6">
           {blasts.length === 0 ? (
@@ -214,13 +308,16 @@ export default function BlastClient({ events, packages, churches, initialBlasts 
           ) : (
             <div className="divide-y divide-[#E5E5E5] rounded-lg border border-[#E5E5E5]">
               {blasts.map((blast) => {
+                const isEmailMode = blast.recipient_mode === 'emails'
                 const f = blast.filters
-                const tags = [
-                  f.eventId !== 'all' ? (events.find(e => e.id === f.eventId)?.name ?? 'Event') : 'All events',
-                  f.status !== 'all' ? f.status : 'All statuses',
-                  f.church !== 'all' ? f.church : null,
-                  f.packageId !== 'all' ? 'Filtered package' : null,
-                ].filter(Boolean) as string[]
+                const tags = isEmailMode
+                  ? ['Email list']
+                  : [
+                      f.eventId !== 'all' ? (events.find(e => e.id === f.eventId)?.name ?? 'Event') : 'All events',
+                      f.status !== 'all' ? f.status : 'All statuses',
+                      f.church !== 'all' ? f.church : null,
+                      f.packageId !== 'all' ? 'Filtered package' : null,
+                    ].filter(Boolean) as string[]
 
                 return (
                   <div key={blast.id} className="px-5 py-4">
@@ -234,6 +331,12 @@ export default function BlastClient({ events, packages, churches, initialBlasts 
                             </span>
                           ))}
                         </div>
+                        {isEmailMode && blast.manual_emails && blast.manual_emails.length > 0 && (
+                          <p className="mt-1.5 text-xs text-muted font-mono truncate">
+                            {blast.manual_emails.slice(0, 3).join(', ')}
+                            {blast.manual_emails.length > 3 && ` +${blast.manual_emails.length - 3} more`}
+                          </p>
+                        )}
                       </div>
                       <div className="shrink-0 text-right">
                         <p className="text-xs font-medium text-[#111111]">

@@ -12,11 +12,15 @@ export interface BlastFilters {
   church: string | 'all'
 }
 
+export type RecipientMode = 'filters' | 'emails'
+
 export interface EmailBlast {
   id: string
   subject: string
   body_html: string
   filters: BlastFilters
+  recipient_mode: RecipientMode
+  manual_emails: string[] | null
   recipient_count: number
   sent_at: string
   sent_by: string | null
@@ -30,34 +34,45 @@ async function requireAdminOrAbove() {
   return staff
 }
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
 // ── Build recipient query from filters ────────────────────────
 function buildQuery(supabase: ReturnType<typeof createServiceClient>, filters: BlastFilters) {
-  let q = supabase
-    .from('registrations')
-    .select('email, full_name')
-
-  if (filters.eventId !== 'all') q = q.eq('event_id', filters.eventId)
-  if (filters.status !== 'all')  q = q.eq('payment_status', filters.status)
-  if (filters.church !== 'all')  q = q.eq('gms_church', filters.church)
-  if (filters.packageId !== 'all') q = q.eq('package_id', filters.packageId)
-
+  let q = supabase.from('registrations').select('email, full_name')
+  if (filters.eventId   !== 'all') q = q.eq('event_id',       filters.eventId)
+  if (filters.status    !== 'all') q = q.eq('payment_status', filters.status)
+  if (filters.church    !== 'all') q = q.eq('gms_church',     filters.church)
+  if (filters.packageId !== 'all') q = q.eq('package_id',     filters.packageId)
   return q
 }
 
-// ── Preview: return distinct recipient count ──────────────────
+function dedup(rows: { email: string; full_name?: string }[]) {
+  const seen = new Set<string>()
+  return rows.filter((r) => {
+    if (seen.has(r.email)) return false
+    seen.add(r.email)
+    return true
+  })
+}
+
+// ── Preview recipient count ───────────────────────────────────
 export async function previewBlastRecipients(
-  filters: BlastFilters
+  mode: RecipientMode,
+  filters: BlastFilters,
+  manualEmails: string[]
 ): Promise<{ count: number; error?: string }> {
   try {
     await requireAdminOrAbove()
-    const supabase = createServiceClient()
 
+    if (mode === 'emails') {
+      const valid = manualEmails.filter((e) => EMAIL_RE.test(e.trim()))
+      return { count: new Set(valid.map((e) => e.trim().toLowerCase())).size }
+    }
+
+    const supabase = createServiceClient()
     const { data, error } = await buildQuery(supabase, filters)
     if (error) return { count: 0, error: error.message }
-
-    // Deduplicate by email
-    const unique = new Set((data ?? []).map((r) => r.email))
-    return { count: unique.size }
+    return { count: new Set((data ?? []).map((r) => r.email)).size }
   } catch (e: any) {
     return { count: 0, error: e.message }
   }
@@ -67,7 +82,9 @@ export async function previewBlastRecipients(
 export async function sendEmailBlast(
   subject: string,
   bodyHtml: string,
-  filters: BlastFilters
+  mode: RecipientMode,
+  filters: BlastFilters,
+  manualEmails: string[]
 ): Promise<{ sent: number; error?: string }> {
   try {
     const staff = await requireAdminOrAbove()
@@ -75,38 +92,33 @@ export async function sendEmailBlast(
     if (!bodyHtml.trim() || bodyHtml === '<p></p>') return { sent: 0, error: 'Message body is required' }
 
     const supabase = createServiceClient()
-    const { data, error } = await buildQuery(supabase, filters)
-    if (error) return { sent: 0, error: error.message }
+    let recipients: { email: string; full_name: string }[] = []
 
-    // Deduplicate
-    const seen = new Set<string>()
-    const recipients = (data ?? []).filter((r) => {
-      if (seen.has(r.email)) return false
-      seen.add(r.email)
-      return true
-    })
+    if (mode === 'emails') {
+      const valid = [...new Set(
+        manualEmails
+          .map((e) => e.trim().toLowerCase())
+          .filter((e) => EMAIL_RE.test(e))
+      )]
+      if (valid.length === 0) return { sent: 0, error: 'No valid email addresses entered' }
+      recipients = valid.map((email) => ({ email, full_name: '' }))
+    } else {
+      const { data, error } = await buildQuery(supabase, filters)
+      if (error) return { sent: 0, error: error.message }
+      recipients = dedup(data ?? [])
+      if (recipients.length === 0) return { sent: 0, error: 'No recipients match these filters' }
+    }
 
-    if (recipients.length === 0) return { sent: 0, error: 'No recipients match these filters' }
-
-    // Wrap body in branded layout
     const html = emailLayout(subject, bodyHtml)
-
     const transporter = getTransporter()
     const from = FROM()
 
-    // Send in batches of 20 (avoid SMTP rate limits)
+    // Send in batches of 20
     const BATCH = 20
     for (let i = 0; i < recipients.length; i += BATCH) {
       const batch = recipients.slice(i, i + BATCH)
       await Promise.all(
-        batch.map((r) =>
-          transporter.sendMail({
-            from,
-            to: r.email,
-            subject,
-            html,
-          })
-        )
+        batch.map((r) => transporter.sendMail({ from, to: r.email, subject, html }))
       )
     }
 
@@ -115,6 +127,8 @@ export async function sendEmailBlast(
       subject,
       body_html: bodyHtml,
       filters,
+      recipient_mode: mode,
+      manual_emails: mode === 'emails' ? recipients.map((r) => r.email) : null,
       recipient_count: recipients.length,
       sent_by: staff.id,
     })
