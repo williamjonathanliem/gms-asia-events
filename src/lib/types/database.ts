@@ -1,6 +1,6 @@
 export type PaymentStatus = 'pending' | 'verified' | 'rejected'
 export type ScanType = 'toolkit' | 'event'
-export type StaffRole = 'super_admin' | 'admin' | 'viewer' | 'scanner'
+export type StaffRole = 'super_admin' | 'admin' | 'scanner'
 export type CustomFieldType = 'text' | 'textarea' | 'select' | 'checkbox'
 
 export interface CustomField {

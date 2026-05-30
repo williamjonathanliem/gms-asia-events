@@ -3,12 +3,13 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { formatDate } from '@/lib/utils'
-import type { EventWithPackages } from '@/lib/types/database'
+import type { EventWithPackages, StaffRole } from '@/lib/types/database'
 import EventDrawer from './EventDrawer'
 
 interface Props {
   initialEvents: EventWithPackages[]
   globalChurches: string[]
+  staffRole: StaffRole
 }
 
 function CopySlugButton({ slug }: { slug: string }) {
@@ -42,7 +43,7 @@ function CopySlugButton({ slug }: { slug: string }) {
   )
 }
 
-export default function EventsClient({ initialEvents, globalChurches }: Props) {
+export default function EventsClient({ initialEvents, globalChurches, staffRole }: Props) {
   const router = useRouter()
   const [events, setEvents] = useState<EventWithPackages[]>(initialEvents)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -151,6 +152,7 @@ export default function EventsClient({ initialEvents, globalChurches }: Props) {
           onEventSaved={handleEventSaved}
           onEventDeleted={handleEventDeleted}
           globalChurches={globalChurches}
+          staffRole={staffRole}
         />
       )}
     </>

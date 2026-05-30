@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils'
 import PackageEditor from './PackageEditor'
 import CustomFieldsBuilder from './CustomFieldsBuilder'
 import CoreFieldsEditor from './CoreFieldsEditor'
-import type { EventWithPackages, CustomField, CoreField, Package } from '@/lib/types/database'
+import type { EventWithPackages, CustomField, CoreField, Package, StaffRole } from '@/lib/types/database'
 
 type Tab = 'details' | 'packages' | 'fields'
 
@@ -26,6 +26,7 @@ interface Props {
   onEventSaved: (event: EventWithPackages) => void
   onEventDeleted: (id: string) => void
   globalChurches: string[]
+  staffRole: StaffRole
 }
 
 // ── Copy link button ──────────────────────────────────────────
@@ -100,7 +101,8 @@ function Toggle({
 }
 
 // ── Main drawer ───────────────────────────────────────────────
-export default function EventDrawer({ event, onClose, onEventSaved, onEventDeleted, globalChurches }: Props) {
+export default function EventDrawer({ event, onClose, onEventSaved, onEventDeleted, globalChurches, staffRole }: Props) {
+  const isSuperAdmin = staffRole === 'super_admin'
   const isNew = event === null
   const [tab, setTab] = useState<Tab>('details')
   const [saving, setSaving] = useState(false)
@@ -471,13 +473,22 @@ export default function EventDrawer({ event, onClose, onEventSaved, onEventDelet
                             Delete all registrations and attendance data. The event itself is kept.
                           </p>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => { setDangerMode('reset'); setDangerInput('') }}
-                          className="shrink-0 rounded-btn border border-warning/40 px-3 py-1.5 text-xs font-medium text-warning hover:bg-warning/10 transition-colors"
-                        >
-                          Reset
-                        </button>
+                        {isSuperAdmin ? (
+                          <button
+                            type="button"
+                            onClick={() => { setDangerMode('reset'); setDangerInput('') }}
+                            className="shrink-0 rounded-btn border border-warning/40 px-3 py-1.5 text-xs font-medium text-warning hover:bg-warning/10 transition-colors"
+                          >
+                            Reset
+                          </button>
+                        ) : (
+                          <span className="shrink-0 flex items-center gap-1 text-xs text-muted">
+                            <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                            </svg>
+                            Super Admin only
+                          </span>
+                        )}
                       </div>
 
                       {/* Delete */}
@@ -488,14 +499,30 @@ export default function EventDrawer({ event, onClose, onEventSaved, onEventDelet
                             Permanently delete this event, all registrations, packages, and form fields.
                           </p>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => { setDangerMode('delete'); setDangerInput('') }}
-                          className="shrink-0 rounded-btn border border-error/40 px-3 py-1.5 text-xs font-medium text-error hover:bg-error/10 transition-colors"
-                        >
-                          Delete
-                        </button>
+                        {isSuperAdmin ? (
+                          <button
+                            type="button"
+                            onClick={() => { setDangerMode('delete'); setDangerInput('') }}
+                            className="shrink-0 rounded-btn border border-error/40 px-3 py-1.5 text-xs font-medium text-error hover:bg-error/10 transition-colors"
+                          >
+                            Delete
+                          </button>
+                        ) : (
+                          <span className="shrink-0 flex items-center gap-1 text-xs text-muted">
+                            <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                            </svg>
+                            Super Admin only
+                          </span>
+                        )}
                       </div>
+
+                      {/* Contact note for non-super-admins */}
+                      {!isSuperAdmin && (
+                        <p className="text-xs text-muted pt-1">
+                          Contact your Super Admin to reset or delete this event.
+                        </p>
+                      )}
                     </div>
                   )}
 

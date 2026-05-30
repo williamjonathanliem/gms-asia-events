@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: 'Events' }
 
 export default async function EventsPage() {
   const staff = await getCurrentStaffUser()
-  if (staff?.role !== 'super_admin') redirect('/dashboard')
+  if (!staff || !['super_admin', 'admin'].includes(staff.role)) redirect('/dashboard')
 
   const supabase = createClient()
   const [{ data }, globalChurches] = await Promise.all([
@@ -29,7 +29,7 @@ export default async function EventsPage() {
         </p>
       </div>
       <div className="px-4 py-5 sm:px-8 sm:py-6">
-        <EventsClient initialEvents={events} globalChurches={globalChurches} />
+        <EventsClient initialEvents={events} globalChurches={globalChurches} staffRole={staff.role} />
       </div>
     </div>
   )

@@ -89,6 +89,10 @@ export default function LoginPage() {
         </Suspense>
 
         <InstallButton variant="banner" />
+
+        <p className="text-center text-[10px] text-muted/40">
+          Made by William Jonathan
+        </p>
       </div>
     </main>
   )

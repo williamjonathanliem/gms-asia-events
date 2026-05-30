@@ -12,6 +12,11 @@ async function requireSuperAdmin() {
   if (staff?.role !== 'super_admin') throw new Error('Unauthorised')
 }
 
+async function requireAdminOrAbove() {
+  const staff = await getCurrentStaffUser()
+  if (!staff || !['super_admin', 'admin'].includes(staff.role)) throw new Error('Unauthorised')
+}
+
 // ── Events ────────────────────────────────────────────────────
 
 export async function createEvent(data: {
@@ -24,7 +29,7 @@ export async function createEvent(data: {
   currency?: string
 }): Promise<{ event?: EventWithPackages; error?: string }> {
   try {
-    await requireSuperAdmin()
+    await requireAdminOrAbove()
     const supabase = createServiceClient()
     const currency = data.currency?.trim() || DEFAULT_EVENT_CURRENCY
     if (!isValidEventCurrency(currency)) {
@@ -77,7 +82,7 @@ export async function updateEvent(
   }>
 ): Promise<{ error?: string }> {
   try {
-    await requireSuperAdmin()
+    await requireAdminOrAbove()
     const supabase = createServiceClient()
 
     if (data.currency != null && !isValidEventCurrency(data.currency)) {
@@ -157,7 +162,7 @@ export async function createPackage(data: {
   toolkit_items: string[]
 }): Promise<{ pkg?: Package; error?: string }> {
   try {
-    await requireSuperAdmin()
+    await requireAdminOrAbove()
     const supabase = createServiceClient()
 
     if (
@@ -197,7 +202,7 @@ export async function updatePackage(
   }
 ): Promise<{ error?: string }> {
   try {
-    await requireSuperAdmin()
+    await requireAdminOrAbove()
     const supabase = createServiceClient()
 
     if (data.price != null && data.early_bird_price != null && data.early_bird_price >= data.price) {
@@ -222,7 +227,7 @@ export async function updatePackage(
 
 export async function deletePackage(id: string): Promise<{ error?: string }> {
   try {
-    await requireSuperAdmin()
+    await requireAdminOrAbove()
     const supabase = createServiceClient()
     const { error } = await supabase.from('packages').delete().eq('id', id)
     if (error) return { error: error.message }
@@ -240,7 +245,7 @@ export async function updateCoreFields(
   fields: CoreField[]
 ): Promise<{ error?: string }> {
   try {
-    await requireSuperAdmin()
+    await requireAdminOrAbove()
     const supabase = createServiceClient()
     const { error } = await supabase
       .from('events')
@@ -261,7 +266,7 @@ export async function updateCustomFields(
   fields: CustomField[]
 ): Promise<{ error?: string }> {
   try {
-    await requireSuperAdmin()
+    await requireAdminOrAbove()
     const supabase = createServiceClient()
     const { error } = await supabase
       .from('events')

@@ -66,6 +66,7 @@ interface Props {
 export default function Sidebar({ staff, activeEvents }: Props) {
   const pathname = usePathname()
   const isSuperAdmin = staff.role === 'super_admin'
+  const isAdminOrAbove = ['super_admin', 'admin'].includes(staff.role)
   const canScan = ['super_admin', 'admin', 'scanner'].includes(staff.role)
   const canViewRegistrations = staff.role !== 'scanner'
 
@@ -76,12 +77,14 @@ export default function Sidebar({ staff, activeEvents }: Props) {
     ...(canScan
       ? [{ label: 'Scanner', href: '/scan', icon: iconScanner }]
       : []),
-    ...(['super_admin', 'admin'].includes(staff.role)
-      ? [{ label: 'Announcements', href: '/dashboard/blast', icon: iconBlast }]
+    ...(isAdminOrAbove
+      ? [
+          { label: 'Events',        href: '/dashboard/events', icon: iconEvents },
+          { label: 'Announcements', href: '/dashboard/blast',  icon: iconBlast  },
+        ]
       : []),
     ...(isSuperAdmin
       ? [
-          { label: 'Events',   href: '/dashboard/events',   icon: iconEvents   },
           { label: 'Staff',    href: '/dashboard/staff',    icon: iconStaff    },
           { label: 'Settings', href: '/dashboard/settings', icon: iconSettings },
         ]
@@ -160,6 +163,9 @@ export default function Sidebar({ staff, activeEvents }: Props) {
             Sign Out
           </button>
         </form>
+        <p className="px-3 pt-2 text-[10px] text-muted/50">
+          Made by William Jonathan
+        </p>
       </div>
     </aside>
   )

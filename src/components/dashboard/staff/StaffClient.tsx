@@ -10,16 +10,14 @@ import { Label } from '@/components/ui/label'
 import type { StaffUser, StaffRole, Event } from '@/lib/types/database'
 
 const ROLES: { value: StaffRole; label: string; description: string }[] = [
-  { value: 'super_admin', label: 'Super Admin', description: 'Full access — events, staff, all registrations' },
-  { value: 'admin',       label: 'Admin',       description: 'Manage registrations, verify payments, scan QR' },
-  { value: 'viewer',      label: 'Viewer',      description: 'Read-only access to registrations' },
+  { value: 'super_admin', label: 'Super Admin', description: 'Full access — staff management, settings, danger zone, all event operations' },
+  { value: 'admin',       label: 'Admin',       description: 'Full event operations — create events, manage registrations, verify payments, announcements, scanner' },
   { value: 'scanner',     label: 'Scanner',     description: 'QR scanner only — no dashboard access' },
 ]
 
 const ROLE_COLORS: Record<StaffRole, string> = {
   super_admin: 'border-[#111111] text-[#111111]',
   admin:       'border-success text-success',
-  viewer:      'border-muted text-muted',
   scanner:     'border-warning text-warning',
 }
 
