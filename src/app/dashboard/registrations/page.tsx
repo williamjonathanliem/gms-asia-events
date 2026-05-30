@@ -248,7 +248,7 @@ export default async function RegistrationsPage({
             total={count ?? 0}
             page={page}
             pageSize={PAGE_SIZE}
-            staffRole={staff?.role ?? 'viewer'}
+            staffRole={staff?.role ?? 'scanner'}
             showEventColumn={showEventColumn}
           />
         </Suspense>
