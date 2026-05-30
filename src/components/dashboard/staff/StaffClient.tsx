@@ -71,7 +71,7 @@ function StaffDrawer({
 }) {
   const isNew = member === null
   const [email, setEmail]       = useState('')
-  const [role, setRole]         = useState<StaffRole>(member?.role ?? 'viewer')
+  const [role, setRole]         = useState<StaffRole>(member?.role ?? 'admin')
   const [scope, setScope]       = useState(member?.event_scope ?? '')
   const [saving, setSaving]     = useState(false)
   const [removing, setRemoving] = useState(false)
