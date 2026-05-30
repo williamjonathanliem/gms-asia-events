@@ -46,13 +46,15 @@ function buildQuery(supabase: ReturnType<typeof createServiceClient>, filters: B
   return q
 }
 
-function dedup(rows: { email: string; full_name?: string }[]) {
+function dedup(rows: { email: string; full_name?: string | null }[]): { email: string; full_name: string }[] {
   const seen = new Set<string>()
-  return rows.filter((r) => {
-    if (seen.has(r.email)) return false
-    seen.add(r.email)
-    return true
-  })
+  return rows
+    .filter((r) => {
+      if (seen.has(r.email)) return false
+      seen.add(r.email)
+      return true
+    })
+    .map((r) => ({ email: r.email, full_name: r.full_name ?? '' }))
 }
 
 // ── Preview recipient count ───────────────────────────────────
