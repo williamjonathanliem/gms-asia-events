@@ -76,12 +76,12 @@ export default function SearchFilters({
   }
 
   return (
-    <div className={`flex flex-wrap gap-3 transition-opacity ${isPending ? 'opacity-60' : ''}`}>
+    <div className={`grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:gap-3 transition-opacity ${isPending ? 'opacity-60' : ''}`}>
       {!eventFilterLocked && eventsForPicker.length > 0 && (
         <Select
           value={eventSelectValue}
           onChange={(e) => updateEventFilter(e.target.value)}
-          className="min-w-[200px] max-w-[280px]"
+          className="w-full sm:min-w-[200px] sm:max-w-[280px]"
         >
           <option value="all">All events</option>
           {activeEventId && (
@@ -104,13 +104,13 @@ export default function SearchFilters({
         placeholder="Search name, email, NIJ, church…"
         defaultValue={searchParams.get('search') ?? ''}
         onChange={(e) => handleSearch(e.target.value)}
-        className="w-64"
+        className="w-full sm:w-64"
       />
 
       <Select
         value={searchParams.get('status') ?? ''}
         onChange={(e) => updateParam('status', e.target.value)}
-        className="w-40"
+        className="w-full sm:w-40"
       >
         <option value="">All statuses</option>
         <option value="pending">Pending</option>
@@ -121,7 +121,7 @@ export default function SearchFilters({
       <Select
         value={searchParams.get('package') ?? ''}
         onChange={(e) => updateParam('package', e.target.value)}
-        className="w-36"
+        className="w-full sm:w-36"
       >
         <option value="">All packages</option>
         <option value="A">Package A</option>
@@ -132,7 +132,7 @@ export default function SearchFilters({
       <Select
         value={searchParams.get('church') ?? ''}
         onChange={(e) => updateParam('church', e.target.value)}
-        className="w-52"
+        className="w-full sm:w-52"
       >
         <option value="">All churches</option>
         {GMS_CHURCHES.map((c) => (

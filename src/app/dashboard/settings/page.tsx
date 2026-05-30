@@ -14,7 +14,7 @@ export default async function SettingsPage() {
 
   return (
     <div className="min-h-screen">
-      <div className="border-b border-[#E5E5E5] px-4 py-5 sm:px-8 sm:py-6">
+      <div className="sticky top-14 lg:top-0 z-10 bg-white border-b border-[#E5E5E5] px-4 py-4 sm:px-8 sm:py-5">
         <h1 className="text-xl font-semibold text-[#111111]">Settings</h1>
         <p className="mt-1 text-sm text-muted">
           Global configuration shared across all events

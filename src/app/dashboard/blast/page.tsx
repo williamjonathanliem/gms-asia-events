@@ -30,13 +30,13 @@ export default async function BlastPage() {
 
   return (
     <div className="min-h-screen">
-      <div className="border-b border-[#E5E5E5] px-4 py-5 sm:px-8 sm:py-6">
+      <div className="sticky top-14 lg:top-0 z-10 bg-white border-b border-[#E5E5E5] px-4 py-4 sm:px-8 sm:py-5">
         <h1 className="text-xl font-semibold text-[#111111]">Announcements</h1>
         <p className="mt-1 text-sm text-muted">
           Send email blasts to registrants across any event
         </p>
       </div>
-      <div className="mx-auto max-w-2xl px-4 py-6 sm:px-8">
+      <div className="mx-auto max-w-2xl px-4 py-5 sm:px-8 sm:py-6">
         <BlastClient
           events={eventsData ?? []}
           packages={packagesData ?? []}

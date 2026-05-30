@@ -24,7 +24,7 @@ export default async function SuccessPage({
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-6">
+    <main className="flex min-h-screen items-center justify-center px-4 sm:px-6">
       <div className="w-full max-w-md space-y-8 text-center">
         {/* Icon */}
         <div className="mx-auto flex size-16 items-center justify-center rounded-full border-2 border-success">

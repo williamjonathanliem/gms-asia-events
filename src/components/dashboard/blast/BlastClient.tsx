@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic'
 import {
   sendEmailBlast,
   previewBlastRecipients,
+  deleteEmailBlasts,
   type BlastFilters,
   type RecipientMode,
   type EmailBlast,
@@ -58,6 +59,11 @@ export default function BlastClient({ events, packages, churches, initialBlasts 
   const [error, setError] = useState<string | null>(null)
   const [blasts, setBlasts] = useState<EmailBlast[]>(initialBlasts)
   const [previewing, startPreview] = useTransition()
+  // History delete state
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   const visiblePackages = filters.eventId === 'all'
     ? packages
@@ -110,6 +116,29 @@ export default function BlastClient({ events, packages, churches, initialBlasts 
     setEmailInput('')
     const { getEmailBlasts } = await import('@/app/dashboard/blast/actions')
     setBlasts(await getEmailBlasts())
+  }
+
+  function toggleSelect(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  function toggleSelectAll() {
+    setSelected(selected.size === blasts.length ? new Set() : new Set(blasts.map((b) => b.id)))
+  }
+
+  async function handleDelete() {
+    setDeleting(true)
+    setDeleteError(null)
+    const res = await deleteEmailBlasts(Array.from(selected))
+    setDeleting(false)
+    if (res.error) { setDeleteError(res.error); return }
+    setBlasts((prev) => prev.filter((b) => !selected.has(b.id)))
+    setSelected(new Set())
+    setConfirmDelete(false)
   }
 
   const canSend =
@@ -196,7 +225,7 @@ export default function BlastClient({ events, packages, churches, initialBlasts 
             {/* Filters panel */}
             {recipientMode === 'filters' && (
               <div className="rounded-lg border border-[#E5E5E5] bg-[#fafafa] p-4 space-y-3">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <Label htmlFor="f-event">Event</Label>
                     <Select id="f-event" value={filters.eventId} onChange={(e) => setFilter('eventId', e.target.value)}>
@@ -300,29 +329,94 @@ export default function BlastClient({ events, packages, churches, initialBlasts 
 
       {/* ── History ── */}
       {tab === 'history' && (
-        <div className="pt-6">
+        <div className="pt-6 space-y-4">
           {blasts.length === 0 ? (
             <div className="rounded-lg border border-[#E5E5E5] py-16 text-center">
               <p className="text-sm text-muted">No blasts sent yet.</p>
             </div>
           ) : (
-            <div className="divide-y divide-[#E5E5E5] rounded-lg border border-[#E5E5E5]">
-              {blasts.map((blast) => {
-                const isEmailMode = blast.recipient_mode === 'emails'
-                const f = blast.filters
-                const tags = isEmailMode
-                  ? ['Email list']
-                  : [
-                      f.eventId !== 'all' ? (events.find(e => e.id === f.eventId)?.name ?? 'Event') : 'All events',
-                      f.status !== 'all' ? f.status : 'All statuses',
-                      f.church !== 'all' ? f.church : null,
-                      f.packageId !== 'all' ? 'Filtered package' : null,
-                    ].filter(Boolean) as string[]
+            <>
+              {/* Bulk action bar */}
+              <div className="flex items-center justify-between gap-3">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={selected.size === blasts.length && blasts.length > 0}
+                    onChange={toggleSelectAll}
+                    className="size-4 rounded border-[#E5E5E5] accent-[#111111]"
+                  />
+                  <span className="text-xs text-muted">
+                    {selected.size > 0 ? `${selected.size} selected` : 'Select all'}
+                  </span>
+                </label>
 
-                return (
-                  <div key={blast.id} className="px-5 py-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="min-w-0">
+                {selected.size > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => { setConfirmDelete(true); setDeleteError(null) }}
+                    className="rounded-btn border border-error/40 px-3 py-1.5 text-xs font-medium text-error hover:bg-error/5 transition-colors"
+                  >
+                    Delete {selected.size === 1 ? '1 blast' : `${selected.size} blasts`}
+                  </button>
+                )}
+              </div>
+
+              {/* Confirm delete */}
+              {confirmDelete && (
+                <div className="rounded-lg border border-error/30 bg-error/5 px-4 py-4 space-y-3">
+                  <p className="text-sm font-medium text-error">
+                    Delete {selected.size === 1 ? 'this blast' : `these ${selected.size} blasts`}?
+                  </p>
+                  <p className="text-xs text-muted">This removes them from history only — emails already sent are not recalled.</p>
+                  {deleteError && <p className="text-xs text-error">{deleteError}</p>}
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => { setConfirmDelete(false); setDeleteError(null) }}
+                      disabled={deleting}
+                      className="flex-1 rounded-btn border border-[#E5E5E5] py-2 text-sm text-muted hover:bg-white disabled:opacity-40"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDelete}
+                      disabled={deleting}
+                      className="flex-1 rounded-btn bg-error py-2 text-sm font-medium text-white hover:opacity-80 disabled:opacity-40"
+                    >
+                      {deleting ? 'Deleting…' : 'Yes, Delete'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Blast list */}
+              <div className="divide-y divide-[#E5E5E5] rounded-lg border border-[#E5E5E5]">
+                {blasts.map((blast) => {
+                  const isEmailMode = blast.recipient_mode === 'emails'
+                  const f = blast.filters
+                  const tags = isEmailMode
+                    ? ['Email list']
+                    : [
+                        f.eventId !== 'all' ? (events.find(e => e.id === f.eventId)?.name ?? 'Event') : 'All events',
+                        f.status !== 'all' ? f.status : 'All statuses',
+                        f.church !== 'all' ? f.church : null,
+                        f.packageId !== 'all' ? 'Filtered package' : null,
+                      ].filter(Boolean) as string[]
+                  const isSelected = selected.has(blast.id)
+
+                  return (
+                    <div
+                      key={blast.id}
+                      className={`flex items-start gap-3 px-4 py-4 transition-colors ${isSelected ? 'bg-[#fafafa]' : ''}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleSelect(blast.id)}
+                        className="mt-0.5 size-4 shrink-0 rounded border-[#E5E5E5] accent-[#111111]"
+                      />
+                      <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-[#111111] truncate">{blast.subject}</p>
                         <div className="mt-1.5 flex flex-wrap gap-1.5">
                           {tags.map((tag) => (
@@ -332,23 +426,20 @@ export default function BlastClient({ events, packages, churches, initialBlasts 
                           ))}
                         </div>
                         {isEmailMode && blast.manual_emails && blast.manual_emails.length > 0 && (
-                          <p className="mt-1.5 text-xs text-muted font-mono truncate">
+                          <p className="mt-1 text-xs text-muted font-mono truncate">
                             {blast.manual_emails.slice(0, 3).join(', ')}
                             {blast.manual_emails.length > 3 && ` +${blast.manual_emails.length - 3} more`}
                           </p>
                         )}
-                      </div>
-                      <div className="shrink-0 text-right">
-                        <p className="text-xs font-medium text-[#111111]">
-                          {blast.recipient_count} recipient{blast.recipient_count !== 1 ? 's' : ''}
+                        <p className="mt-1 text-xs text-muted">
+                          {blast.recipient_count} recipient{blast.recipient_count !== 1 ? 's' : ''} · {formatDateTime(blast.sent_at)}
                         </p>
-                        <p className="mt-0.5 text-xs text-muted">{formatDateTime(blast.sent_at)}</p>
                       </div>
                     </div>
-                  </div>
-                )
-              })}
-            </div>
+                  )
+                })}
+              </div>
+            </>
           )}
         </div>
       )}

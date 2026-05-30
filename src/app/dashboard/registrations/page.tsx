@@ -181,8 +181,8 @@ export default async function RegistrationsPage({
 
   return (
     <div className="min-h-screen">
-      {/* Header */}
-      <div className="border-b border-[#E5E5E5] px-4 py-5 sm:px-8 sm:py-6">
+      {/* Header — sticky so event name is always visible while scrolling */}
+      <div className="sticky top-14 lg:top-0 z-10 bg-white border-b border-[#E5E5E5] px-4 py-4 sm:px-8 sm:py-5">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-xs font-medium uppercase tracking-widest text-muted">
@@ -191,7 +191,7 @@ export default async function RegistrationsPage({
             </p>
             <h1 className="mt-1 text-xl font-semibold text-[#111111]">Registrations</h1>
           </div>
-          <div className="flex shrink-0 items-center gap-2 pt-1">
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
             <RefreshButton />
             <Suspense>
               <ExportButton eventId={filterEventId} />

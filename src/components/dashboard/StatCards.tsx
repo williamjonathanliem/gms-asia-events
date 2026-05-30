@@ -59,7 +59,7 @@ export default async function StatCards({ eventId }: Props) {
   ])
 
   return (
-    <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       <Card label="Total Registered" value={total ?? 0} sub={`${pending ?? 0} pending payment`} />
       <Card label="Payment Verified" value={verified ?? 0} />
       <Card label="Toolkit Collected" value={toolkit ?? 0} />

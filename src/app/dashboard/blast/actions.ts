@@ -95,11 +95,11 @@ export async function sendEmailBlast(
     let recipients: { email: string; full_name: string }[] = []
 
     if (mode === 'emails') {
-      const valid = [...new Set(
+      const valid = Array.from(new Set(
         manualEmails
           .map((e) => e.trim().toLowerCase())
           .filter((e) => EMAIL_RE.test(e))
-      )]
+      ))
       if (valid.length === 0) return { sent: 0, error: 'No valid email addresses entered' }
       recipients = valid.map((email) => ({ email, full_name: '' }))
     } else {
@@ -137,6 +137,21 @@ export async function sendEmailBlast(
     return { sent: recipients.length }
   } catch (e: any) {
     return { sent: 0, error: e.message }
+  }
+}
+
+// ── Delete blasts ─────────────────────────────────────────────
+export async function deleteEmailBlasts(ids: string[]): Promise<{ error?: string }> {
+  try {
+    await requireAdminOrAbove()
+    if (!ids.length) return {}
+    const supabase = createServiceClient()
+    const { error } = await supabase.from('email_blasts').delete().in('id', ids)
+    if (error) return { error: error.message }
+    revalidatePath('/dashboard/blast')
+    return {}
+  } catch (e: any) {
+    return { error: e.message }
   }
 }
 

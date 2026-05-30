@@ -199,7 +199,7 @@ export default function RegistrationForm({ event, packages, globalChurches }: Pr
     <div className="min-h-screen bg-white">
       {/* ── Page header ── */}
       <div className="border-b border-[#E5E5E5]">
-        <div className="mx-auto max-w-xl px-6 py-10">
+        <div className="mx-auto max-w-xl px-4 py-8 sm:px-6 sm:py-10">
           <p className="text-xs font-medium uppercase tracking-widest text-muted">
             Event Registration
           </p>
@@ -214,7 +214,7 @@ export default function RegistrationForm({ event, packages, globalChurches }: Pr
         </div>
       </div>
 
-      <form action={action} className="mx-auto max-w-xl space-y-10 px-6 py-10">
+      <form action={action} className="mx-auto max-w-xl space-y-8 px-4 py-8 sm:space-y-10 sm:px-6 sm:py-10">
         {/* Global error */}
         {state.error && (
           <div className="rounded-lg border border-error/30 bg-error/5 px-4 py-3 text-sm text-error">

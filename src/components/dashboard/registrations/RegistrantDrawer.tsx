@@ -198,7 +198,7 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
       {/* Panel */}
       <aside
         className={cn(
-          'fixed inset-y-0 right-0 z-50 flex w-[500px] flex-col bg-white border-l border-[#E5E5E5]',
+          'fixed inset-y-0 right-0 z-50 flex w-full sm:w-[500px] flex-col bg-white border-l border-[#E5E5E5]',
           'transition-transform duration-200',
           isOpen ? 'translate-x-0' : 'translate-x-full'
         )}

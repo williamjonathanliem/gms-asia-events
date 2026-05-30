@@ -233,7 +233,7 @@ export default function EventDrawer({ event, onClose, onEventSaved, onEventDelet
       <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm" onClick={onClose} />
 
       {/* Panel */}
-      <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col bg-white shadow-2xl">
+      <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col bg-white shadow-2xl sm:max-w-lg">
         {/* Header */}
         <div className="flex shrink-0 items-center justify-between border-b border-[#E5E5E5] px-6 py-4">
           <h2 className="text-sm font-semibold text-[#111111]">
