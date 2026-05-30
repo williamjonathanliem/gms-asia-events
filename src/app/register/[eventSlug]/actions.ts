@@ -54,19 +54,16 @@ export async function submitRegistration(
   const coreFields = resolveCoreFields((eventData as any)?.core_fields)
   const cf = Object.fromEntries(coreFields.map((f) => [f.key, f]))
 
-  if (cf.full_name?.enabled) {
-    if (!full_name) fieldErrors.full_name = `${cf.full_name.label} is required`
+  if (cf.full_name?.enabled && cf.full_name?.required && !full_name) {
+    fieldErrors.full_name = `${cf.full_name.label} is required`
   }
 
   if (cf.email?.enabled) {
-    if (!email) {
+    if (cf.email.required && !email) {
       fieldErrors.email = `${cf.email.label} is required`
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    } else if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       fieldErrors.email = 'Please enter a valid email address'
     }
-  } else if (!email) {
-    // email is always required even if hidden (needed for QR/comms)
-    fieldErrors.email = 'Email is required'
   }
 
   if (cf.gms_church?.enabled && cf.gms_church?.required && !gms_church) {
@@ -114,16 +111,18 @@ export async function submitRegistration(
 
   if (Object.keys(fieldErrors).length > 0) return { fieldErrors }
 
-  // ── Duplicate email check ────────────────────────────────────
-  const { data: existing } = await supabase
-    .from('registrations')
-    .select('id')
-    .eq('event_id', event_id)
-    .eq('email', email)
-    .maybeSingle()
+  // ── Duplicate email check (only when email was provided) ─────
+  if (email) {
+    const { data: existing } = await supabase
+      .from('registrations')
+      .select('id')
+      .eq('event_id', event_id)
+      .eq('email', email)
+      .maybeSingle()
 
-  if (existing) {
-    return { fieldErrors: { email: 'This email is already registered for this event' } }
+    if (existing) {
+      return { fieldErrors: { email: 'This email is already registered for this event' } }
+    }
   }
 
   // ── Resolve pricing (server-side; never trust client) ─────────
@@ -150,12 +149,12 @@ export async function submitRegistration(
     .from('registrations')
     .insert({
       event_id,
-      full_name,
-      email,
-      phone,
-      gms_church,
-      nij,
-      package_id: package_id || null,
+      full_name:      full_name  || null,
+      email:          email      || null,
+      phone:          phone      || null,
+      gms_church:     gms_church || null,
+      nij:            nij        || null,
+      package_id:     package_id || null,
       payment_status: 'pending',
       custom_answers,
       amount_paid,
@@ -207,7 +206,7 @@ export async function submitRegistration(
     .eq('id', registration.id)
     .single()
 
-  if (fullReg?.packages && fullReg?.events) {
+  if (fullReg?.email && fullReg?.packages && fullReg?.events) {
     try {
       const pkg = fullReg.packages as unknown as {
         name: string

@@ -14,10 +14,10 @@ const INPUT_TYPE_LABELS: Record<CoreFieldInputType, string> = {
   select:   'Dropdown',
 }
 
-// Keys that must always stay enabled + required
-const LOCKED_ENABLED:  CoreField['key'][] = ['full_name', 'email']
-const LOCKED_REQUIRED: CoreField['key'][] = ['full_name', 'email']
-// Keys whose inputType should not be changed (semantic meaning depends on it)
+// No fields are permanently locked — all can be hidden or made optional
+const LOCKED_ENABLED:  CoreField['key'][] = []
+const LOCKED_REQUIRED: CoreField['key'][] = []
+// Email input type is locked so format validation still works if shown
 const LOCKED_TYPE: CoreField['key'][] = ['email']
 
 interface Props {
@@ -239,8 +239,7 @@ export default function CoreFieldsEditor({ eventId, fields, onChange, globalChur
       })}
 
       <p className="px-1 text-xs text-muted">
-        <strong className="text-[#111111]">Full Name</strong> and{' '}
-        <strong className="text-[#111111]">Email</strong> are always shown and required.
+        Hiding or making <strong className="text-[#111111]">Email</strong> optional will disable QR code delivery and confirmation emails for that event.
       </p>
     </div>
   )
