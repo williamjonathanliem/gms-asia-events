@@ -294,7 +294,7 @@ export default function RegistrationForm({ event, packages, globalChurches }: Pr
           // Intercept form submit for card flow — manual uses server action normally
           if (paymentMethod === 'card') e.preventDefault()
         }}
-        className="mx-auto max-w-xl space-y-10 px-6 py-10"
+        className="mx-auto max-w-xl space-y-10 px-6"
       >
         {/* Global error */}
         {globalError && (
@@ -666,11 +666,11 @@ export default function RegistrationForm({ event, packages, globalChurches }: Pr
                       </div>
                       <div className="flex justify-between px-4 py-2.5 border-t border-[#E5E5E5] bg-[#fafafa]">
                         <span className="text-muted">Card processing fee</span>
-                        <span className="text-[#111111]">+{formatJPY(feeBreakdown.fee)}</span>
+                        <span className="text-[#111111]">3.95%</span>
                       </div>
                       <div className="flex justify-between px-4 py-3 border-t border-[#E5E5E5]">
                         <span className="font-semibold text-[#111111]">Total charged</span>
-                        <span className="font-semibold text-[#111111]">{formatJPY(feeBreakdown.total)}</span>
+                        <span className="font-semibold text-[#111111]">{formatJPY(feeBreakdown.net)} + 3.95%</span>
                       </div>
                     </div>
                   )}
