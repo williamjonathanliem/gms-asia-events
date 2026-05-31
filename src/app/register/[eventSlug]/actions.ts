@@ -13,6 +13,10 @@ export type RegisterFormState = {
   fieldErrors?: Partial<Record<string, string>>
 }
 
+export type StripeRegisterResult =
+  | { success: true; registrationId: string }
+  | { success: false; error?: string; fieldErrors?: Partial<Record<string, string>> }
+
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 const MAX_FILE_SIZE = 5 * 1024 * 1024
 
@@ -155,6 +159,7 @@ export async function submitRegistration(
       gms_church:     gms_church || null,
       nij:            nij        || null,
       package_id:     package_id || null,
+      payment_method: 'manual',
       payment_status: 'pending',
       custom_answers,
       amount_paid,
@@ -244,4 +249,94 @@ export async function submitRegistration(
   }
 
   redirect(`/register/success?id=${registration.id}`)
+}
+
+// ── Stripe: create pending registration before payment confirmation ──
+export async function createStripeRegistration(
+  formData: FormData
+): Promise<StripeRegisterResult> {
+  const full_name = (formData.get('full_name') as string)?.trim()
+  const email = (formData.get('email') as string)?.trim().toLowerCase()
+  const phone = (formData.get('phone') as string)?.trim() || null
+  const gms_church = formData.get('gms_church') as string
+  const nij = (formData.get('nij') as string)?.trim() || null
+  const package_id = formData.get('package_id') as string
+  const event_id = formData.get('event_id') as string
+  const stripe_payment_intent_id = formData.get('stripe_payment_intent_id') as string
+
+  if (!stripe_payment_intent_id)
+    return { success: false, error: 'Payment not initialised. Please try again.' }
+
+  const fieldErrors: Record<string, string> = {}
+  if (!full_name) fieldErrors.full_name = 'Full name is required'
+  if (!email) {
+    fieldErrors.email = 'Email is required'
+  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    fieldErrors.email = 'Please enter a valid email address'
+  }
+  if (!gms_church) fieldErrors.gms_church = 'Please select your church branch'
+  if (!package_id) fieldErrors.package_id = 'Please select a package'
+  if (Object.keys(fieldErrors).length > 0) return { success: false, fieldErrors }
+
+  const supabase = createServiceClient()
+
+  const { data: existing } = await supabase
+    .from('registrations')
+    .select('id')
+    .eq('event_id', event_id)
+    .eq('email', email)
+    .maybeSingle()
+
+  if (existing)
+    return { success: false, fieldErrors: { email: 'This email is already registered for this event' } }
+
+  const { data: eventData } = await supabase
+    .from('events')
+    .select('early_bird_enabled, early_bird_auto_change, early_bird_end_date')
+    .eq('id', event_id)
+    .single()
+
+  let amount_paid: number | null = null
+  let is_early_bird = false
+
+  if (package_id && eventData) {
+    const { data: pkg } = await supabase
+      .from('packages')
+      .select('price, early_bird_price')
+      .eq('id', package_id)
+      .single()
+    if (pkg) {
+      const pricing = resolveRegistrationPricing(pkg, eventData)
+      amount_paid = pricing.amount_paid
+      is_early_bird = pricing.is_early_bird
+    }
+  }
+
+  const { data: registration, error: insertError } = await supabase
+    .from('registrations')
+    .insert({
+      event_id,
+      full_name,
+      email,
+      phone,
+      gms_church,
+      nij: nij || null,
+      package_id,
+      payment_method: 'stripe',
+      payment_status: 'pending',
+      stripe_payment_intent_id,
+      custom_answers: {},
+      amount_paid,
+      is_early_bird,
+    })
+    .select('id')
+    .single()
+
+  if (insertError || !registration) {
+    if (insertError?.code === '23505')
+      return { success: false, fieldErrors: { email: 'This email is already registered for this event' } }
+    return { success: false, error: 'Registration failed. Please try again.' }
+  }
+
+  return { success: true, registrationId: registration.id }
 }

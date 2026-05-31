@@ -1,4 +1,5 @@
 export type PaymentStatus = 'pending' | 'verified' | 'rejected'
+export type PaymentMethod = 'manual' | 'stripe'
 export type ScanType = 'toolkit' | 'event'
 export type StaffRole = 'super_admin' | 'admin' | 'scanner'
 export type CustomFieldType = 'text' | 'textarea' | 'select' | 'checkbox'
@@ -70,6 +71,7 @@ export interface Package {
   name: string
   price: number
   early_bird_price: number | null
+  stripe_price_jpy: number | null
   toolkit_items: string[]
   created_at: string
 }
@@ -83,8 +85,10 @@ export interface Registration {
   gms_church: string
   nij: string | null
   package_id: string | null
+  payment_method: PaymentMethod
   payment_screenshot_url: string | null
   payment_status: PaymentStatus
+  stripe_payment_intent_id: string | null
   payment_notes: string | null
   qr_token: string
   custom_answers: Record<string, string | boolean>

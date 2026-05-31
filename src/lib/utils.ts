@@ -16,6 +16,10 @@ export function formatCurrency(amount: number, currency = 'IDR'): string {
   }).format(amount)
 }
 
+export function formatJPY(amount: number): string {
+  return `¥${amount.toLocaleString('ja-JP')}`
+}
+
 export function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('en-GB', {
     day: 'numeric',
