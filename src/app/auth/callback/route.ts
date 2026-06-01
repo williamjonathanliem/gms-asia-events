@@ -6,12 +6,15 @@ export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
   const next = searchParams.get('next') ?? '/dashboard'
+  const type = searchParams.get('type') // 'invite' when coming from a staff invite email
 
   if (code) {
     const supabase = createClient()
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
-      return NextResponse.redirect(`${origin}${next}`)
+      // Invited users must set their own password before entering the dashboard
+      const destination = type === 'invite' ? '/auth/set-password' : next
+      return NextResponse.redirect(`${origin}${destination}`)
     }
   }
 

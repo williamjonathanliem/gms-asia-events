@@ -263,6 +263,7 @@ export async function createStripeRegistration(
   const package_id = formData.get('package_id') as string
   const event_id = formData.get('event_id') as string
   const stripe_payment_intent_id = formData.get('stripe_payment_intent_id') as string
+  const card_remark = (formData.get('card_remark') as string)?.trim() || null
 
   if (!stripe_payment_intent_id)
     return { success: false, error: 'Payment not initialised. Please try again.' }
@@ -325,6 +326,7 @@ export async function createStripeRegistration(
       payment_method: 'stripe',
       payment_status: 'pending',
       stripe_payment_intent_id,
+      payment_notes: card_remark,
       custom_answers: {},
       amount_paid,
       is_early_bird,
@@ -336,6 +338,19 @@ export async function createStripeRegistration(
     if (insertError?.code === '23505')
       return { success: false, fieldErrors: { email: 'This email is already registered for this event' } }
     return { success: false, error: 'Registration failed. Please try again.' }
+  }
+
+  // Update PaymentIntent description in Stripe so it's visible in the dashboard
+  try {
+    const { stripe } = await import('@/lib/stripe')
+    const descriptionParts = [`${full_name}`]
+    if (card_remark) descriptionParts.push(`Remark: ${card_remark}`)
+    descriptionParts.push(email)
+    await stripe.paymentIntents.update(stripe_payment_intent_id, {
+      description: descriptionParts.join(' · '),
+    })
+  } catch {
+    // Non-fatal — registration is saved, Stripe description is just a nice-to-have
   }
 
   return { success: true, registrationId: registration.id }

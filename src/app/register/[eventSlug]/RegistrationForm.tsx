@@ -675,6 +675,24 @@ export default function RegistrationForm({ event, packages, globalChurches }: Pr
                     </div>
                   )}
 
+                  {/* Payment remark */}
+                  <div>
+                    <label htmlFor="card_remark" className="block text-sm font-medium text-[#111111] mb-1.5">
+                      Payment remark{' '}
+                      <span className="font-normal text-muted">(optional)</span>
+                    </label>
+                    <input
+                      id="card_remark"
+                      name="card_remark"
+                      type="text"
+                      placeholder="e.g. Card belongs to Andrew Tantomo (my husband)"
+                      className="w-full rounded-btn border border-[#E5E5E5] bg-white px-3 py-2 text-sm text-[#111111] placeholder:text-muted focus:border-[#111111] focus:outline-none"
+                    />
+                    <p className="mt-1 text-xs text-muted">
+                      Use this if the card holder's name differs from the registrant's name.
+                    </p>
+                  </div>
+
                   {/* Stripe Elements */}
                   <Elements
                     stripe={stripePromise}
