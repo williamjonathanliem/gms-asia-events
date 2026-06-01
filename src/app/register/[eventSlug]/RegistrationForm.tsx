@@ -689,7 +689,7 @@ export default function RegistrationForm({ event, packages, globalChurches }: Pr
                       className="w-full rounded-btn border border-[#E5E5E5] bg-white px-3 py-2 text-sm text-[#111111] placeholder:text-muted focus:border-[#111111] focus:outline-none"
                     />
                     <p className="mt-1 text-xs text-muted">
-                      Use this if the card holder's name differs from the registrant's name.
+                      Use this if the card holder&apos;s name differs from the registrant&apos;s name.
                     </p>
                   </div>
 

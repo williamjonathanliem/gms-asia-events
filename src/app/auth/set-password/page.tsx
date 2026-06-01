@@ -18,14 +18,15 @@ export default function SetPasswordPage() {
 
   // Wait for session to be available before allowing form submission
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
+    const { auth } = supabase
+    auth.getSession().then(({ data }) => {
       if (data.session) {
         setSessionReady(true)
       } else {
-        // No session — invite link may have expired
         setError('Your invitation link has expired or is invalid. Please ask your admin to send a new invite.')
       }
     })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   async function handleSubmit(e: React.FormEvent) {
