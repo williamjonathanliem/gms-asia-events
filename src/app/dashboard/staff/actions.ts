@@ -21,7 +21,7 @@ export async function inviteStaff(data: {
 
     const origin =
       process.env.NEXT_PUBLIC_SITE_URL ??
-      process.env.NEXT_PUBLIC_SUPABASE_URL?.replace('.supabase.co', '') ??
+      process.env.NEXT_PUBLIC_APP_URL ??
       'http://localhost:3000'
 
     // Invite creates the auth.users record and sends the invite email
