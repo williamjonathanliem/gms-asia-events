@@ -74,25 +74,16 @@ export default function InstallButton({ variant = 'button' }: Props) {
           </div>
 
           {/* Action button */}
-          {platform === 'android' && (
-            <button
-              onClick={handleInstall}
-              className="shrink-0 rounded bg-[#111111] px-4 py-1.5 text-sm font-semibold text-white hover:bg-[#2a2a2a] transition-colors"
-            >
-              Install
-            </button>
-          )}
-          {platform === 'ios' && (
+          {platform === 'ios' ? (
             <button
               onClick={() => setShowIOSSteps((v) => !v)}
               className="shrink-0 rounded bg-[#111111] px-4 py-1.5 text-sm font-semibold text-white hover:bg-[#2a2a2a] transition-colors"
             >
               How To
             </button>
-          )}
-          {platform === 'desktop' && (
+          ) : (
             <button
-              onClick={deferredPrompt ? handleInstall : () => setShowIOSSteps((v) => !v)}
+              onClick={deferredPrompt ? handleInstall : undefined}
               className="shrink-0 rounded bg-[#111111] px-4 py-1.5 text-sm font-semibold text-white hover:bg-[#2a2a2a] transition-colors"
             >
               Install
@@ -100,7 +91,7 @@ export default function InstallButton({ variant = 'button' }: Props) {
           )}
         </div>
 
-        {/* iOS / Desktop steps (expandable) */}
+        {/* iOS steps only */}
         {showIOSSteps && platform === 'ios' && (
           <div className="mt-3 space-y-1.5 border-t border-[#E5E5E5] pt-3">
             <Step n={1}>Open this page in <strong>Safari</strong></Step>
@@ -110,16 +101,6 @@ export default function InstallButton({ variant = 'button' }: Props) {
             </Step>
             <Step n={3}>Scroll down and tap <strong>&ldquo;Add to Home Screen&rdquo;</strong></Step>
             <Step n={4}>Tap <strong>Add</strong> — done!</Step>
-          </div>
-        )}
-        {showIOSSteps && platform === 'desktop' && (
-          <div className="mt-3 space-y-1.5 border-t border-[#E5E5E5] pt-3">
-            <Step n={1}>
-              Look for the <DesktopInstallIcon className="inline size-4 align-text-bottom" />{' '}
-              install icon in your browser&apos;s <strong>address bar</strong>
-            </Step>
-            <Step n={2}>Click it and select <strong>&ldquo;Install&rdquo;</strong></Step>
-            <Step n={3}>The app will open as its own window — pin it to your taskbar</Step>
           </div>
         )}
       </div>
@@ -154,33 +135,37 @@ export default function InstallButton({ variant = 'button' }: Props) {
     )
   }
 
-  // iOS or desktop without prompt → how-to steps toggle
+  // iOS → how-to steps toggle
+  if (platform === 'ios') {
+    return (
+      <div>
+        <button
+          onClick={() => setShowIOSSteps((v) => !v)}
+          className="flex w-full items-center justify-center gap-2 rounded border border-[#E5E5E5] px-3 py-2 text-sm font-medium text-[#111111] hover:bg-[#f5f5f5] transition-colors"
+        >
+          <DownloadIcon />
+          Install Scanner App
+        </button>
+        {showIOSSteps && (
+          <div className="mt-2 rounded border border-[#E5E5E5] px-3 py-2 text-xs text-muted space-y-1">
+            <p><span className="font-medium text-[#111111]">1.</span> Open in Safari</p>
+            <p><span className="font-medium text-[#111111]">2.</span> Tap <ShareIcon className="inline size-3" /> Share</p>
+            <p><span className="font-medium text-[#111111]">3.</span> &ldquo;Add to Home Screen&rdquo;</p>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // Android / Desktop — always show Install button
   return (
-    <div>
-      <button
-        onClick={() => setShowIOSSteps((v) => !v)}
-        className="flex w-full items-center justify-center gap-2 rounded border border-[#E5E5E5] px-3 py-2 text-sm font-medium text-[#111111] hover:bg-[#f5f5f5] transition-colors"
-      >
-        <DownloadIcon />
-        Install Scanner App
-      </button>
-      {showIOSSteps && (
-        <div className="mt-2 rounded border border-[#E5E5E5] px-3 py-2 text-xs text-muted space-y-1">
-          {platform === 'ios' ? (
-            <>
-              <p><span className="font-medium text-[#111111]">1.</span> Open in Safari</p>
-              <p><span className="font-medium text-[#111111]">2.</span> Tap <ShareIcon className="inline size-3" /> Share</p>
-              <p><span className="font-medium text-[#111111]">3.</span> &ldquo;Add to Home Screen&rdquo;</p>
-            </>
-          ) : (
-            <>
-              <p><span className="font-medium text-[#111111]">1.</span> Click the install icon in your browser&apos;s address bar</p>
-              <p><span className="font-medium text-[#111111]">2.</span> Select &ldquo;Install&rdquo;</p>
-            </>
-          )}
-        </div>
-      )}
-    </div>
+    <button
+      onClick={deferredPrompt ? handleInstall : undefined}
+      className="flex w-full items-center justify-center gap-2 rounded border border-[#E5E5E5] px-3 py-2 text-sm font-medium text-[#111111] hover:bg-[#f5f5f5] transition-colors"
+    >
+      <DownloadIcon />
+      Install Scanner App
+    </button>
   )
 }
 
