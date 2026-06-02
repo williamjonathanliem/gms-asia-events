@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect, useId } from 'react'
 import { slugify } from '@/lib/utils'
@@ -10,15 +10,14 @@ import {
 } from '@/app/dashboard/events/actions'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select } from '@/components/ui/select'
+import { Select } from '@/components/ui/select-native'
 import { EVENT_CURRENCIES, DEFAULT_EVENT_CURRENCY } from '@/lib/currencies'
 import { cn } from '@/lib/utils'
+import Link from 'next/link'
 import PackageEditor from './PackageEditor'
-import CustomFieldsBuilder from './CustomFieldsBuilder'
-import CoreFieldsEditor from './CoreFieldsEditor'
-import type { EventWithPackages, CustomField, CoreField, Package, StaffRole } from '@/lib/types/database'
+import type { EventWithPackages, Package, StaffRole } from '@/lib/types/database'
 
-type Tab = 'details' | 'packages' | 'fields'
+type Tab = 'details' | 'packages'
 
 interface Props {
   event: EventWithPackages | null // null = new event
@@ -29,7 +28,7 @@ interface Props {
   staffRole: StaffRole
 }
 
-// ── Copy link button ──────────────────────────────────────────
+// â"€â"€ Copy link button â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 function CopyLinkButton({ slug }: { slug: string }) {
   const [copied, setCopied] = useState(false)
 
@@ -55,13 +54,13 @@ function CopyLinkButton({ slug }: { slug: string }) {
         onClick={copy}
         className="shrink-0 rounded-md px-2.5 py-1 text-xs font-medium transition-colors hover:bg-white border border-[#E5E5E5] text-[#111111]"
       >
-        {copied ? 'Copied ✓' : 'Copy Link'}
+        {copied ? 'Copied âœ"' : 'Copy Link'}
       </button>
     </div>
   )
 }
 
-// ── Toggle switch ─────────────────────────────────────────────
+// â"€â"€ Toggle switch â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 function Toggle({
   checked,
   onChange,
@@ -100,8 +99,8 @@ function Toggle({
   )
 }
 
-// ── Main drawer ───────────────────────────────────────────────
-export default function EventDrawer({ event, onClose, onEventSaved, onEventDeleted, globalChurches, staffRole }: Props) {
+// â"€â"€ Main drawer â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+export default function EventDrawer({ event, onClose, onEventSaved, onEventDeleted, staffRole }: Props) {
   const isSuperAdmin = staffRole === 'super_admin'
   const isNew = event === null
   const [tab, setTab] = useState<Tab>('details')
@@ -129,10 +128,8 @@ export default function EventDrawer({ event, onClose, onEventSaved, onEventDelet
     event?.currency ?? DEFAULT_EVENT_CURRENCY
   )
 
-  // Local packages + fields for sub-editors
+  // Local packages for sub-editor
   const [localPackages, setLocalPackages] = useState<Package[]>(event?.packages ?? [])
-  const [localFields, setLocalFields] = useState<CustomField[]>(event?.custom_fields ?? [])
-  const [localCoreFields, setLocalCoreFields] = useState<CoreField[] | null>(event?.core_fields ?? null)
 
   // Auto-derive slug from name if user hasn't manually edited it
   useEffect(() => {
@@ -197,7 +194,6 @@ export default function EventDrawer({ event, onClose, onEventSaved, onEventDelet
         early_bird_end_date: earlyBirdEnabled && earlyBirdEndDate ? earlyBirdEndDate : null,
         currency,
         packages: localPackages,
-        custom_fields: localFields,
       })
     }
   }
@@ -226,7 +222,6 @@ export default function EventDrawer({ event, onClose, onEventSaved, onEventDelet
   const tabs: { key: Tab; label: string }[] = [
     { key: 'details', label: 'Details' },
     { key: 'packages', label: `Packages (${localPackages.length})` },
-    { key: 'fields', label: 'Form Fields' },
   ]
 
   return (
@@ -273,7 +268,7 @@ export default function EventDrawer({ event, onClose, onEventSaved, onEventDelet
 
         {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto">
-          {/* ── Details tab ── */}
+          {/* â"€â"€ Details tab â"€â"€ */}
           {(isNew || tab === 'details') && (
             <div className="space-y-5 px-6 py-6">
               {error && (
@@ -297,7 +292,7 @@ export default function EventDrawer({ event, onClose, onEventSaved, onEventDelet
                   URL Slug&ensp;
                   <span className="font-normal text-muted">
                     (used in /register/
-                    <strong className="text-[#111111]">{slug || '…'}</strong>
+                    <strong className="text-[#111111]">{slug || 'â€¦'}</strong>
                     )
                   </span>
                 </Label>
@@ -377,7 +372,7 @@ export default function EventDrawer({ event, onClose, onEventSaved, onEventDelet
                       value={formSubtitle}
                       onChange={(e) => setFormSubtitle(e.target.value)}
                       rows={2}
-                      placeholder="Brief description shown below the heading…"
+                      placeholder="Brief description shown below the headingâ€¦"
                       className="w-full rounded-btn border border-[#E5E5E5] bg-white px-3 py-2 text-sm text-[#111111] placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-[#111111] focus:border-transparent resize-none"
                     />
                   </div>
@@ -456,6 +451,19 @@ export default function EventDrawer({ event, onClose, onEventSaved, onEventDelet
                 {saving ? 'Saving…' : isNew ? 'Create Event' : 'Save Details'}
               </button>
 
+              {/* Edit Form link */}
+              {!isNew && (
+                <Link
+                  href={`/dashboard/events/${event.id}/form`}
+                  className="flex w-full items-center justify-between rounded-btn border border-[#E5E5E5] px-4 py-2.5 text-sm text-[#111111] hover:bg-[#fafafa] transition-colors"
+                >
+                  <span className="font-medium">Edit Form</span>
+                  <svg className="size-4 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                  </svg>
+                </Link>
+              )}
+
               {/* ── Danger zone ── */}
               {!isNew && (
                 <div className="space-y-3 border-t border-[#E5E5E5] pt-5">
@@ -526,7 +534,7 @@ export default function EventDrawer({ event, onClose, onEventSaved, onEventDelet
                     </div>
                   )}
 
-                  {/* Confirmation panel — shared for both actions */}
+                  {/* Confirmation panel â€" shared for both actions */}
                   {dangerMode !== null && (
                     <div className={`space-y-4 rounded-lg border p-4 ${
                       dangerMode === 'delete'
@@ -587,8 +595,8 @@ export default function EventDrawer({ event, onClose, onEventSaved, onEventDelet
                           }`}
                         >
                           {dangerMode === 'delete'
-                            ? (deleting ? 'Deleting…' : 'Delete Event')
-                            : (resetting ? 'Resetting…' : 'Reset Event')}
+                            ? (deleting ? 'Deletingâ€¦' : 'Delete Event')
+                            : (resetting ? 'Resettingâ€¦' : 'Reset Event')}
                         </button>
                       </div>
                     </div>
@@ -598,7 +606,7 @@ export default function EventDrawer({ event, onClose, onEventSaved, onEventDelet
             </div>
           )}
 
-          {/* ── Packages tab ── */}
+          {/* â"€â"€ Packages tab â"€â"€ */}
           {!isNew && tab === 'packages' && (
             <PackageEditor
               eventId={event.id}
@@ -609,37 +617,9 @@ export default function EventDrawer({ event, onClose, onEventSaved, onEventDelet
             />
           )}
 
-          {/* ── Form Fields tab ── */}
-          {!isNew && tab === 'fields' && (
-            <div className="space-y-0">
-              {/* Core fields section */}
-              <div className="px-6 py-5 border-b border-[#E5E5E5]">
-                <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-muted">
-                  Core Fields
-                </p>
-                <CoreFieldsEditor
-                  eventId={event.id}
-                  fields={localCoreFields}
-                  onChange={setLocalCoreFields}
-                  globalChurches={globalChurches}
-                />
-              </div>
-
-              {/* Custom fields section */}
-              <div className="px-6 py-5">
-                <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-muted">
-                  Additional Fields
-                </p>
-                <CustomFieldsBuilder
-                  eventId={event.id}
-                  fields={localFields}
-                  onChange={setLocalFields}
-                />
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </>
   )
 }
+

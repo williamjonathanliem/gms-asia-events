@@ -2,6 +2,9 @@ import type { Metadata, Viewport } from 'next'
 import { GeistSans } from 'geist/font/sans'
 import { GeistMono } from 'geist/font/mono'
 import './globals.css'
+import { cn } from "@/lib/utils";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { Toaster } from "sonner";
 
 export const viewport: Viewport = {
   themeColor: '#000000',
@@ -34,10 +37,13 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${GeistSans.variable} ${GeistMono.variable}`}
+      className={cn(GeistSans.variable, GeistMono.variable, "font-sans")}
     >
       <body className="min-h-screen bg-white font-sans text-[#111111] antialiased">
-        {children}
+        <TooltipProvider>
+          {children}
+          <Toaster richColors closeButton position="bottom-right" />
+        </TooltipProvider>
       </body>
     </html>
   )

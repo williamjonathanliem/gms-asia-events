@@ -6,6 +6,8 @@ import { formatDate } from '@/lib/utils'
 import type { Metadata } from 'next'
 import type { EventWithPackages } from '@/lib/types/database'
 
+export const dynamic = 'force-dynamic'
+
 interface Props {
   params: { eventSlug: string }
 }

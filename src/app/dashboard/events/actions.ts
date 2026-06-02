@@ -79,6 +79,7 @@ export async function updateEvent(
     early_bird_auto_change: boolean
     early_bird_end_date: string | null
     currency: string
+    form_theme: Record<string, string>
   }>
 ): Promise<{ error?: string }> {
   try {
@@ -96,6 +97,7 @@ export async function updateEvent(
     const { error } = await supabase.from('events').update(data).eq('id', id)
     if (error) return { error: error.message }
     revalidatePath('/dashboard/events')
+    revalidatePath('/register', 'layout')   // invalidate all /register/[slug] pages
     return {}
   } catch (e: any) {
     return { error: e.message }

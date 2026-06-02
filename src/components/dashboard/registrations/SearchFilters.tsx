@@ -1,9 +1,9 @@
-'use client'
+﻿'use client'
 
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useCallback, useRef, useTransition } from 'react'
 import { Input } from '@/components/ui/input'
-import { Select } from '@/components/ui/select'
+import { Select } from '@/components/ui/select-native'
 import { GMS_CHURCHES } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
 
@@ -86,22 +86,22 @@ export default function SearchFilters({
           <option value="all">All events</option>
           {activeEventId && (
             <option value={activeEventId}>
-              Active event ·{' '}
-              {eventsForPicker.find((e) => e.id === activeEventId)?.name ?? '—'}
+              Active event Â·{' '}
+              {eventsForPicker.find((e) => e.id === activeEventId)?.name ?? 'â€”'}
             </option>
           )}
           {eventsForPicker
             .filter((ev) => ev.id !== activeEventId)
             .map((ev) => (
               <option key={ev.id} value={ev.id}>
-                {ev.name} · {formatDate(ev.date)}
+                {ev.name} Â· {formatDate(ev.date)}
               </option>
             ))}
         </Select>
       )}
 
       <Input
-        placeholder="Search name, email, NIJ, church…"
+        placeholder="Search name, email, NIJ, churchâ€¦"
         defaultValue={searchParams.get('search') ?? ''}
         onChange={(e) => handleSearch(e.target.value)}
         className="w-full sm:w-64"
@@ -142,3 +142,4 @@ export default function SearchFilters({
     </div>
   )
 }
+

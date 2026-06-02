@@ -4,29 +4,23 @@ import { useFormState, useFormStatus } from 'react-dom'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js'
 import { submitRegistration, createStripeRegistration, type RegisterFormState } from './actions'
-import { type Event, type Package, type CustomField, resolveCoreFields } from '@/lib/types/database'
+import { type Event, type Package, type CustomField, resolveCoreFields, resolveTheme, isColorDark } from '@/lib/types/database'
+import FormBackground, { themeDark, getBackgroundCSS } from '@/components/registration/FormBackground'
 import { GMS_CHURCHES } from '@/lib/constants'
 import { formatJPY, formatDate } from '@/lib/utils'
 import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select } from '@/components/ui/select'
+import { Select } from '@/components/ui/select-native'
 import { getStripePromise } from '@/lib/stripe-client'
 
-// ── Bank / payment accordion data ────────────────────────────
+// ── Bank / payment data ───────────────────────────────────────
 const PAYPAY_QR_IMAGE = '/paypay-qr.png'
 const PAYPAY_LINK = 'https://qr.paypay.ne.jp/p2p01_zCcb7GDpzP9swuRY'
 
-type BankRow = { label: string; value: string; copyValue?: string; copyable?: boolean }
+type BankRow     = { label: string; value: string; copyValue?: string; copyable?: boolean }
 type BankSection = { title?: string; rows: BankRow[] }
-type BankOption = {
-  id: string
-  label: string
-  sections?: BankSection[]
-  note?: string
-  hasQR?: boolean
-}
+type BankOption  = { id: string; label: string; sections?: BankSection[]; note?: string; hasQR?: boolean }
 
 const BANK_OPTIONS: BankOption[] = [
   {
@@ -37,7 +31,7 @@ const BANK_OPTIONS: BankOption[] = [
         title: 'JP Post Transfer',
         rows: [
           { label: 'Account Name', value: 'Andrew Getty Tantomo' },
-          { label: 'Code No.', value: '10950', copyable: true },
+          { label: 'Code No.',     value: '10950',    copyable: true },
           { label: 'Account No.', value: '17568871', copyable: true },
         ],
       },
@@ -45,7 +39,7 @@ const BANK_OPTIONS: BankOption[] = [
         title: 'Other Bank Transfer',
         rows: [
           { label: 'Account Name', value: 'Andrew Getty Tantomo' },
-          { label: 'Branch Code', value: '098', copyable: true },
+          { label: 'Branch Code',  value: '098',     copyable: true },
           { label: 'Account No.', value: '1756887', copyable: true },
         ],
       },
@@ -57,9 +51,9 @@ const BANK_OPTIONS: BankOption[] = [
     sections: [
       {
         rows: [
-          { label: 'Bank Name', value: '楽天銀行 (Rakuten Bank)' },
-          { label: 'Branch No.', value: '254', copyable: true },
-          { label: 'Branch Name', value: '第四営業支店 (Daiyon Eigyou Shiten)' },
+          { label: 'Bank Name',    value: '楽天銀行 (Rakuten Bank)' },
+          { label: 'Branch No.',   value: '254',     copyable: true },
+          { label: 'Branch Name',  value: '第四営業支店 (Daiyon Eigyou Shiten)' },
           { label: 'Account Name', value: 'シヤ）ゴスペルミッションステュワーズチャーチ' },
           { label: 'Account No.', value: '7760827', copyable: true },
         ],
@@ -78,7 +72,7 @@ const BANK_OPTIONS: BankOption[] = [
       {
         rows: [
           { label: 'Number', value: '070-9194-7415', copyValue: '07091947415', copyable: true },
-          { label: 'Name', value: 'VERICO CHRISTIAN JONATHAN' },
+          { label: 'Name',   value: 'VERICO CHRISTIAN JONATHAN' },
         ],
       },
     ],
@@ -86,78 +80,76 @@ const BANK_OPTIONS: BankOption[] = [
   },
 ]
 
-// ── Stripe appearance matching the design system ──────────────
-// Note: Stripe runs in an iframe — CSS vars don't work, load font via `fonts` prop on Elements
+// ── Font map ─────────────────────────────────────────────────
+const FONT_MAP: Record<string, { css: string; url: string | null }> = {
+  geist:      { css: '"Geist", system-ui, sans-serif',         url: null },
+  inter:      { css: '"Inter", system-ui, sans-serif',          url: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap' },
+  poppins:    { css: '"Poppins", system-ui, sans-serif',        url: 'https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap' },
+  raleway:    { css: '"Raleway", system-ui, sans-serif',        url: 'https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600&display=swap' },
+  playfair:   { css: '"Playfair Display", Georgia, serif',      url: 'https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600&display=swap' },
+  montserrat: { css: '"Montserrat", system-ui, sans-serif',     url: 'https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600&display=swap' },
+}
+
+// ── Stripe appearance ─────────────────────────────────────────
 const STRIPE_APPEARANCE = {
   theme: 'stripe' as const,
   variables: {
-    colorPrimary: '#111111',
+    colorPrimary:  '#111111',
     colorBackground: '#ffffff',
-    colorText: '#111111',
-    colorDanger: '#DC2626',
-    fontFamily: '"Geist", system-ui, -apple-system, sans-serif',
-    borderRadius: '6px',
-    fontSizeBase: '14px',
+    colorText:     '#111111',
+    colorDanger:   '#DC2626',
+    fontFamily:    '"Geist", system-ui, -apple-system, sans-serif',
+    borderRadius:  '6px',
+    fontSizeBase:  '14px',
   },
   rules: {
-    '.Input': {
-      border: '1px solid #E5E5E5',
-      boxShadow: 'none',
-    },
-    '.Input:focus': {
-      border: '1px solid #111111',
-      boxShadow: 'none',
-    },
-    '.Label': {
-      fontWeight: '500',
-      color: '#111111',
-      marginBottom: '6px',
-    },
+    '.Input':       { border: '1px solid #E5E5E5', boxShadow: 'none' },
+    '.Input:focus': { border: '1px solid #111111', boxShadow: 'none' },
+    '.Label':       { fontWeight: '500', color: '#111111', marginBottom: '6px' },
   },
 }
 
-// Load Geist into Stripe's iframe
 const STRIPE_FONTS = [
-  {
-    cssSrc:
-      'https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap',
-  },
+  { cssSrc: 'https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap' },
 ]
 
-// ── Manual submit button (uses useFormStatus) ─────────────────
+// ── ManualSubmitButton — uses CSS vars set on ancestor ────────
 function ManualSubmitButton() {
   const { pending } = useFormStatus()
   return (
-    <Button type="submit" size="lg" disabled={pending} className="w-full mt-2">
+    <button
+      type="submit"
+      disabled={pending}
+      className="w-full mt-2 flex items-center justify-center py-3 text-sm font-semibold transition-opacity hover:opacity-80 disabled:opacity-50"
+      style={{
+        backgroundColor: 'var(--form-accent)',
+        color:           'var(--form-accent-text)',
+        borderRadius:    'var(--form-btn-radius)',
+      }}
+    >
       {pending ? (
         <span className="flex items-center gap-2">
           <Spinner />
-          Submitting…
+          Submitting...
         </span>
       ) : (
         'Submit Registration'
       )}
-    </Button>
+    </button>
   )
 }
 
-// ── Stripe payment section (must live inside <Elements>) ───────
+// ── Stripe payment section ────────────────────────────────────
 interface StripeSectionProps {
-  formRef: React.RefObject<HTMLFormElement>
+  formRef:        React.RefObject<HTMLFormElement>
   paymentIntentId: string
-  fieldErrors: Partial<Record<string, string>>
-  onFieldErrors: (errors: Partial<Record<string, string>>) => void
-  onError: (msg: string) => void
+  fieldErrors:    Partial<Record<string, string>>
+  onFieldErrors:  (errors: Partial<Record<string, string>>) => void
+  onError:        (msg: string) => void
 }
 
-function StripePaymentSection({
-  formRef,
-  paymentIntentId,
-  fieldErrors,
-  onFieldErrors,
-  onError,
-}: StripeSectionProps) {
-  const stripe = useStripe()
+function StripePaymentSection({ formRef, paymentIntentId, fieldErrors, onFieldErrors, onError }: StripeSectionProps) {
+  const stripe   = useStripe()
   const elements = useElements()
   const [submitting, setSubmitting] = useState(false)
 
@@ -165,11 +157,9 @@ function StripePaymentSection({
     if (!stripe || !elements || !formRef.current) return
     setSubmitting(true)
 
-    // Collect form data from the parent form element
     const formData = new FormData(formRef.current)
     formData.set('stripe_payment_intent_id', paymentIntentId)
 
-    // 1. Create the pending registration in DB
     const result = await createStripeRegistration(formData)
 
     if (!result.success) {
@@ -179,7 +169,6 @@ function StripePaymentSection({
       return
     }
 
-    // 2. Confirm the Stripe payment — Stripe redirects to return_url on success
     const { error } = await stripe.confirmPayment({
       elements,
       confirmParams: {
@@ -187,7 +176,6 @@ function StripePaymentSection({
       },
     })
 
-    // If we get here, confirmPayment failed (otherwise we'd have been redirected)
     if (error) {
       onError(error.message ?? 'Payment failed. Please try again.')
       setSubmitting(false)
@@ -196,52 +184,46 @@ function StripePaymentSection({
 
   return (
     <div className="space-y-4">
-      <PaymentElement
-        options={{
-          layout: 'tabs',
-        }}
-      />
-      <Button
+      <PaymentElement options={{ layout: 'tabs' }} />
+      <button
         type="button"
-        size="lg"
-        className="w-full mt-2"
         disabled={!stripe || !elements || submitting}
         onClick={handlePay}
+        className="w-full mt-2 flex items-center justify-center py-3 text-sm font-semibold transition-opacity hover:opacity-80 disabled:opacity-50"
+        style={{
+          backgroundColor: 'var(--form-accent)',
+          color:           'var(--form-accent-text)',
+          borderRadius:    'var(--form-btn-radius)',
+        }}
       >
         {submitting ? (
           <span className="flex items-center gap-2">
             <Spinner />
-            Processing payment…
+            Processing payment...
           </span>
         ) : (
           'Pay & Register'
         )}
-      </Button>
+      </button>
     </div>
   )
 }
 
-// ── Spinner helper ─────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────
 function Spinner() {
   return (
     <svg className="size-4 animate-spin" viewBox="0 0 24 24" fill="none">
       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path
-        className="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
-      />
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
     </svg>
   )
 }
 
-// ── Field error helper ─────────────────────────────────────────
 function FieldError({ message }: { message?: string }) {
   if (!message) return null
   return <p className="mt-1.5 text-xs text-error">{message}</p>
 }
 
-// ── Copy-to-clipboard button ───────────────────────────────────
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false)
   const copy = () => {
@@ -262,8 +244,8 @@ function CopyButton({ text }: { text: string }) {
 
 // ── Main form ─────────────────────────────────────────────────
 interface Props {
-  event: Event
-  packages: Package[]
+  event:          Event
+  packages:       Package[]
   globalChurches?: string[]
 }
 
@@ -274,29 +256,25 @@ const stripePromise = getStripePromise()
 
 export default function RegistrationForm({ event, packages, globalChurches }: Props) {
   const churches = globalChurches && globalChurches.length > 0 ? globalChurches : GMS_CHURCHES
-  const [state, formAction] = useFormState(submitRegistration, initial)
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('manual')
-  const [openBank, setOpenBank] = useState<string | null>(null)
-  const [selectedPkg, setSelectedPkg] = useState<string>(packages[0]?.id ?? '')
-  const [fileName, setFileName] = useState<string>('')
-  const [clientSecret, setClientSecret] = useState<string | null>(null)
+  const [state,          formAction]       = useFormState(submitRegistration, initial)
+  const [paymentMethod,  setPaymentMethod] = useState<PaymentMethod>('manual')
+  const [openBank,       setOpenBank]      = useState<string | null>(null)
+  const [selectedPkg,    setSelectedPkg]   = useState<string>(packages[0]?.id ?? '')
+  const [fileName,       setFileName]      = useState<string>('')
+  const [clientSecret,   setClientSecret]  = useState<string | null>(null)
   const [paymentIntentId, setPaymentIntentId] = useState<string>('')
-  const [feeBreakdown, setFeeBreakdown] = useState<{ net: number; fee: number; total: number } | null>(null)
-  const [stripeLoading, setStripeLoading] = useState(false)
-  const [stripeError, setStripeError] = useState<string | null>(null)
-  const [globalError, setGlobalError] = useState<string | null>(state.error ?? null)
-  const [fieldErrors, setFieldErrors] = useState<Partial<Record<string, string>>>(
-    state.fieldErrors ?? {}
-  )
+  const [feeBreakdown,   setFeeBreakdown]  = useState<{ net: number; fee: number; total: number } | null>(null)
+  const [stripeLoading,  setStripeLoading] = useState(false)
+  const [stripeError,    setStripeError]   = useState<string | null>(null)
+  const [globalError,    setGlobalError]   = useState<string | null>(state.error ?? null)
+  const [fieldErrors,    setFieldErrors]   = useState<Partial<Record<string, string>>>(state.fieldErrors ?? {})
   const formRef = useRef<HTMLFormElement>(null)
 
-  // Sync server action errors back into state (manual flow)
   useEffect(() => {
     setGlobalError(state.error ?? null)
     setFieldErrors(state.fieldErrors ?? {})
   }, [state])
 
-  // Create / refresh PaymentIntent whenever card is selected + package changes
   const fetchPaymentIntent = useCallback(async (packageId: string) => {
     setStripeLoading(true)
     setStripeError(null)
@@ -304,10 +282,10 @@ export default function RegistrationForm({ event, packages, globalChurches }: Pr
     setPaymentIntentId('')
 
     try {
-      const res = await fetch('/api/stripe/create-payment-intent', {
-        method: 'POST',
+      const res  = await fetch('/api/stripe/create-payment-intent', {
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ package_id: packageId }),
+        body:    JSON.stringify({ package_id: packageId }),
       })
       const data = await res.json()
 
@@ -318,7 +296,6 @@ export default function RegistrationForm({ event, packages, globalChurches }: Pr
 
       setClientSecret(data.clientSecret)
       setFeeBreakdown({ net: data.netAmount, fee: data.fee, total: data.totalAmount })
-      // Extract PaymentIntent ID from the client secret (format: pi_xxx_secret_yyy)
       setPaymentIntentId(data.clientSecret.split('_secret_')[0])
     } catch {
       setStripeError('Network error. Please check your connection and try again.')
@@ -333,19 +310,117 @@ export default function RegistrationForm({ event, packages, globalChurches }: Pr
     }
   }, [paymentMethod, selectedPkg, fetchPaymentIntent])
 
+  // ── Theme derivations ─────────────────────────────────────
+  const theme = resolveTheme(event.form_theme)
+
+  // isDark: card style takes priority; otherwise follow background darkness
+  const isDark =
+    theme.cardStyle === 'dark'  ? true  :
+    theme.cardStyle === 'white' ? false :
+    themeDark(theme)
+
+  const isAccentDark  = isColorDark(theme.accentColor)
+  const accentText    = isAccentDark ? '#ffffff' : '#111111'
+  const btnRadius     = theme.buttonShape === 'sharp' ? '0px' : theme.buttonShape === 'pill' ? '9999px' : '8px'
+  const fontEntry     = FONT_MAP[theme.fontFamily] ?? FONT_MAP.geist
+  const isCard          = theme.cardStyle !== 'transparent'
   const selectedPackage = packages.find((p) => p.id === selectedPkg)
 
-  return (
-    <div className="min-h-screen bg-white">
-      {/* ── Page header ── */}
-      <div className="border-b border-[#E5E5E5]">
-        <div className="mx-auto max-w-xl px-6 py-10">
-          <p className="text-xs font-medium uppercase tracking-widest text-muted">
+  // Load Google Font
+  useEffect(() => {
+    if (!fontEntry.url) return
+    const id = `form-font-${theme.fontFamily}`
+    if (document.getElementById(id)) return
+    const link  = document.createElement('link')
+    link.id     = id
+    link.rel    = 'stylesheet'
+    link.href   = fontEntry.url
+    document.head.appendChild(link)
+  }, [theme.fontFamily, fontEntry.url])
+
+  // Auto text colours (used when the theme doesn't override)
+  const autoText  = isDark ? '#ffffff'             : '#111111'
+  const autoMuted = isDark ? 'rgba(255,255,255,0.55)' : '#888888'
+
+  // CSS variables — exposed to all descendants including ManualSubmitButton/StripePaymentSection
+  const formVars = {
+    '--form-accent':      theme.accentColor,
+    '--form-accent-text': accentText,
+    '--form-btn-radius':  btnRadius,
+    '--form-text':        theme.textColor  || autoText,
+    '--form-muted':       theme.mutedColor || autoMuted,
+    fontFamily:           fontEntry.css,
+  } as React.CSSProperties
+
+  // Colour tokens — text uses CSS vars so manual overrides take effect everywhere
+  const c = {
+    heading:      'text-[var(--form-text)]',
+    subtext:      'text-[var(--form-muted)]',
+    sectionHead:  'text-[var(--form-text)]',
+    label:        'text-[var(--form-text)]',
+    headerBorder: isDark ? 'border-white/10'  : 'border-[#E5E5E5]',
+    headerBg:     isCard ? '' : isDark
+                    ? 'bg-black/20 backdrop-blur-sm'
+                    : 'bg-white/80 backdrop-blur-sm',
+    errorBg:      isDark ? 'bg-error/20 border-error/40' : 'bg-error/5 border-error/30',
+  }
+
+  // Input classes — text/placeholder use CSS vars; borders/bg still follow isDark
+  const inputCls = cn(
+    'w-full text-sm focus:outline-none transition-colors text-[var(--form-text)] placeholder:text-[var(--form-muted)]',
+    theme.inputStyle === 'underline' && [
+      'border-0 border-b-2 rounded-none bg-transparent px-0 py-1.5',
+      isDark ? 'border-white/30 focus:border-white' : 'border-[#E5E5E5] focus:border-[#111111]',
+    ],
+    theme.inputStyle === 'filled' && [
+      'rounded-btn border border-transparent px-3 py-2',
+      isDark ? 'bg-white/10 focus:bg-white/15 focus:border-white/40'
+             : 'bg-[#F5F5F5] focus:bg-white focus:border-[#E5E5E5] border border-transparent',
+    ],
+    theme.inputStyle === 'outlined' && [
+      'rounded-btn border px-3 py-2',
+      isDark ? 'bg-white/8 border-white/20 focus:border-white/60'
+             : 'border-[#E5E5E5] bg-white focus:border-[#111111]',
+    ]
+  )
+
+  // Card wrapper classes
+  const cardCls = cn(
+    isCard && 'w-full max-w-xl mx-auto overflow-hidden shadow-2xl',
+    theme.cardStyle === 'glass' && 'my-8 rounded-2xl bg-white/15 backdrop-blur-xl border border-white/25',
+    theme.cardStyle === 'white' && 'my-8 rounded-2xl bg-white border border-[#E5E5E5]',
+    theme.cardStyle === 'dark'  && 'my-8 rounded-2xl bg-[#111111] border border-white/10',
+  )
+
+  // Inner boxes (package cards, payment toggles, accordion) use frosted glass
+  // whenever the coloured background is visible behind them.
+  const boxGlass = !isCard || theme.cardStyle === 'glass'
+
+  const box = {
+    base:     boxGlass ? 'bg-white/15 backdrop-blur-md border border-white/20'
+                       : isDark ? 'bg-white/8 border border-white/10'
+                                : 'bg-white border border-[#E5E5E5]',
+    hover:    boxGlass ? 'hover:bg-white/22' : isDark ? 'hover:bg-white/15' : 'hover:border-[#999]',
+    active:   boxGlass ? 'bg-white/28 backdrop-blur-md' : isDark ? 'bg-white/15' : 'bg-[#fafafa]',
+    divide:   boxGlass ? 'divide-white/15' : isDark ? 'divide-white/10' : 'divide-[#E5E5E5]',
+    subtle:   boxGlass ? 'bg-white/10' : isDark ? 'bg-white/5' : 'bg-[#fafafa]',
+  }
+
+  // Selected package-card accent border via inline style
+  const pkgSelectedStyle = { borderColor: theme.accentColor }
+
+  // ── Render ────────────────────────────────────────────────
+  const content = (
+    <>
+      {/* Page header */}
+      <div className={`border-b ${c.headerBorder} ${c.headerBg}`}>
+        <div className={cn('px-6 py-10', isCard ? 'max-w-none' : 'mx-auto max-w-xl')}>
+          <p className={`text-xs font-medium uppercase tracking-widest ${c.subtext}`}>
             Event Registration
           </p>
-          <h1 className="mt-2 text-2xl font-semibold text-[#111111]">{event.name}</h1>
-          <p className="mt-1 text-sm text-muted">
-            {formatDate(event.date)}&ensp;·&ensp;{event.location}
+          <h1 className={`mt-2 text-2xl font-semibold ${c.heading}`}>{event.name}</h1>
+          <p className={`mt-1 text-sm ${c.subtext}`}>
+            {formatDate(event.date)}&ensp;&middot;&ensp;{event.location}
           </p>
         </div>
       </div>
@@ -353,99 +428,117 @@ export default function RegistrationForm({ event, packages, globalChurches }: Pr
       <form
         ref={formRef}
         action={formAction}
-        onSubmit={(e) => {
-          // Intercept form submit for card flow — manual uses server action normally
-          if (paymentMethod === 'card') e.preventDefault()
-        }}
-        className="mx-auto max-w-xl space-y-10 px-6"
+        onSubmit={(e) => { if (paymentMethod === 'card') e.preventDefault() }}
+        className={cn('space-y-10 px-6', isCard ? 'py-6' : 'mx-auto max-w-xl')}
       >
         {/* Global error */}
         {globalError && (
-          <div className="rounded-lg border border-error/30 bg-error/5 px-4 py-3 text-sm text-error">
+          <div className={`rounded-lg border px-4 py-3 text-sm text-error ${c.errorBg}`}>
             {globalError}
           </div>
         )}
 
-        {/* ── Section: Personal Information ── */}
-        <section className="space-y-5">
-          <h2 className="text-xs font-semibold uppercase tracking-widest text-[#111111]">
-            Personal Information
-          </h2>
+        {/* ── Core fields ── */}
+        {(() => {
+          const coreFields     = resolveCoreFields(event.core_fields).filter(f => f.enabled)
+          const personalFields = coreFields.filter(f => ['full_name', 'email', 'phone'].includes(f.key))
+          const churchFields   = coreFields.filter(f => ['gms_church', 'nij'].includes(f.key))
 
-          <div>
-            <Label htmlFor="full_name" required>Full Name</Label>
-            <Input
-              id="full_name"
-              name="full_name"
-              placeholder="As per ID"
-              className={fieldErrors.full_name ? 'border-error' : ''}
-            />
-            <FieldError message={fieldErrors.full_name} />
-          </div>
+          const placeholders: Record<string, string> = {
+            full_name: 'As per ID',
+            email:     'you@example.com',
+            phone:     '+62 8xx xxxx xxxx',
+            nij:       'e.g. 21004592',
+          }
 
-          <div>
-            <Label htmlFor="email" required>Email Address</Label>
-            <Input
-              id="email"
-              name="email"
-              type="email"
-              placeholder="you@example.com"
-              className={fieldErrors.email ? 'border-error' : ''}
-            />
-            <FieldError message={fieldErrors.email} />
-          </div>
+          return (
+            <>
+              {personalFields.length > 0 && (
+                <section className="space-y-5">
+                  <h2 className={`text-xs font-semibold uppercase tracking-widest ${c.sectionHead}`}>
+                    Personal Information
+                  </h2>
+                  {personalFields.map((field) => {
+                    const fe = fieldErrors[field.key]
+                    return (
+                      <div key={field.key}>
+                        <Label htmlFor={field.key} required={field.required} className={c.label}>
+                          {field.label}
+                          {!field.required && <span className="font-normal text-muted">&ensp;(optional)</span>}
+                        </Label>
+                        <input
+                          id={field.key}
+                          name={field.key}
+                          type={field.inputType === 'tel' ? 'tel' : field.inputType === 'email' ? 'email' : 'text'}
+                          placeholder={placeholders[field.key] ?? ''}
+                          className={cn(inputCls, fe && 'border-error')}
+                        />
+                        <FieldError message={fe} />
+                      </div>
+                    )
+                  })}
+                </section>
+              )}
 
-          <div>
-            <Label htmlFor="phone">
-              Phone Number&ensp;
-              <span className="font-normal text-muted">(optional)</span>
-            </Label>
-            <Input id="phone" name="phone" type="tel" placeholder="+62 8xx xxxx xxxx" />
-          </div>
-        </section>
+              {churchFields.length > 0 && (
+                <section className="space-y-5">
+                  <h2 className={`text-xs font-semibold uppercase tracking-widest ${c.sectionHead}`}>
+                    Church Information
+                  </h2>
+                  {churchFields.map((field) => {
+                    const fe = fieldErrors[field.key]
+                    if (field.key === 'gms_church') {
+                      return (
+                        <div key={field.key}>
+                          <Label htmlFor="gms_church" required={field.required} className={c.label}>{field.label}</Label>
+                          <select
+                            id="gms_church"
+                            name="gms_church"
+                            defaultValue=""
+                            className={cn(inputCls, fe && 'border-error')}
+                          >
+                            <option value="" disabled>Select your church branch</option>
+                            {churches.map((ch) => (
+                              <option key={ch} value={ch}>{ch}</option>
+                            ))}
+                          </select>
+                          <FieldError message={fe} />
+                        </div>
+                      )
+                    }
+                    return (
+                      <div key={field.key}>
+                        <Label htmlFor={field.key} required={field.required} className={c.label}>
+                          {field.label}
+                          {!field.required && <span className="font-normal text-muted">&ensp;(optional)</span>}
+                        </Label>
+                        <input
+                          id={field.key}
+                          name={field.key}
+                          type="text"
+                          placeholder={placeholders[field.key] ?? ''}
+                          className={cn(inputCls, fe && 'border-error')}
+                        />
+                        <FieldError message={fe} />
+                      </div>
+                    )
+                  })}
+                </section>
+              )}
+            </>
+          )
+        })()}
 
-        {/* ── Section: Church Information ── */}
-        <section className="space-y-5">
-          <h2 className="text-xs font-semibold uppercase tracking-widest text-[#111111]">
-            Church Information
-          </h2>
-
-          <div>
-            <Label htmlFor="gms_church" required>GMS Church Branch</Label>
-            <Select
-              id="gms_church"
-              name="gms_church"
-              defaultValue=""
-              className={fieldErrors.gms_church ? 'border-error' : ''}
-            >
-              <option value="" disabled>Select your church branch</option>
-              {churches.map((church) => (
-                <option key={church} value={church}>
-                  {church}
-                </option>
-              ))}
-            </Select>
-            <FieldError message={fieldErrors.gms_church} />
-          </div>
-
-          <div>
-            <Label htmlFor="nij">
-              NIJ / Disciple ID&ensp;
-              <span className="font-normal text-muted">(optional)</span>
-            </Label>
-            <Input id="nij" name="nij" placeholder="e.g. 21004592" />
-          </div>
-        </section>
-
-        {/* ── Section: Custom Fields ── */}
+        {/* ── Custom fields ── */}
         {(event.custom_fields ?? []).length > 0 && (
           <section className="space-y-5">
-            <h2 className="text-xs font-semibold uppercase tracking-widest text-[#111111]">
+            <h2 className={`text-xs font-semibold uppercase tracking-widest ${c.sectionHead}`}>
               Additional Information
             </h2>
             {(event.custom_fields as CustomField[]).map((field) => {
               const key = `custom_${field.id}`
-              const fe = (fieldErrors as Record<string, string>)[key]
+              const fe  = (fieldErrors as Record<string, string>)[key]
+
               if (field.type === 'checkbox') {
                 return (
                   <div key={field.id} className="flex items-start gap-3">
@@ -453,58 +546,64 @@ export default function RegistrationForm({ event, packages, globalChurches }: Pr
                       id={key}
                       name={key}
                       type="checkbox"
-                      className="mt-0.5 size-4 rounded border-[#E5E5E5] accent-[#111111]"
+                      className="mt-0.5 size-4 rounded border-[#E5E5E5]"
+                      style={{ accentColor: theme.accentColor }}
                     />
-                    <label htmlFor={key} className="text-sm text-[#111111] leading-snug">
+                    <label htmlFor={key} className={`text-sm leading-snug ${c.label}`}>
                       {field.label}
                     </label>
                   </div>
                 )
               }
+
               if (field.type === 'textarea') {
                 return (
                   <div key={field.id}>
-                    <Label htmlFor={key} required={field.required}>{field.label}</Label>
+                    <Label htmlFor={key} required={field.required} className={c.label}>{field.label}</Label>
                     <textarea
                       id={key}
                       name={key}
                       rows={3}
                       placeholder={field.placeholder ?? ''}
                       required={field.required}
-                      className={cn(
-                        'w-full rounded-btn border px-3 py-2 text-sm text-[#111111] placeholder:text-muted focus:border-[#111111] focus:outline-none resize-none',
-                        fe ? 'border-error' : 'border-[#E5E5E5]'
-                      )}
+                      className={cn(inputCls, 'resize-none', fe && 'border-error')}
                     />
                     <FieldError message={fe} />
                   </div>
                 )
               }
+
               if (field.type === 'select') {
                 return (
                   <div key={field.id}>
-                    <Label htmlFor={key} required={field.required}>{field.label}</Label>
-                    <Select id={key} name={key} defaultValue="" required={field.required} className={fe ? 'border-error' : ''}>
+                    <Label htmlFor={key} required={field.required} className={c.label}>{field.label}</Label>
+                    <select
+                      id={key}
+                      name={key}
+                      defaultValue=""
+                      required={field.required}
+                      className={cn(inputCls, fe && 'border-error')}
+                    >
                       <option value="" disabled>Select an option</option>
                       {(field.options ?? []).map((opt) => (
                         <option key={opt} value={opt}>{opt}</option>
                       ))}
-                    </Select>
+                    </select>
                     <FieldError message={fe} />
                   </div>
                 )
               }
-              // default: text
+
               return (
                 <div key={field.id}>
-                  <Label htmlFor={key} required={field.required}>{field.label}</Label>
-                  <Input
+                  <Label htmlFor={key} required={field.required} className={c.label}>{field.label}</Label>
+                  <input
                     id={key}
                     name={key}
                     type="text"
                     placeholder={field.placeholder ?? ''}
                     required={field.required}
-                    className={fe ? 'border-error' : ''}
+                    className={cn(inputCls, fe && 'border-error')}
                   />
                   <FieldError message={fe} />
                 </div>
@@ -513,9 +612,9 @@ export default function RegistrationForm({ event, packages, globalChurches }: Pr
           </section>
         )}
 
-        {/* ── Section: Package Selection ── */}
+        {/* ── Package selection ── */}
         <section className="space-y-4">
-          <h2 className="text-xs font-semibold uppercase tracking-widest text-[#111111]">
+          <h2 className={`text-xs font-semibold uppercase tracking-widest ${c.sectionHead}`}>
             Package
           </h2>
           <FieldError message={fieldErrors.package_id} />
@@ -527,11 +626,12 @@ export default function RegistrationForm({ event, packages, globalChurches }: Pr
                 <label
                   key={pkg.id}
                   className={cn(
-                    'flex cursor-pointer gap-4 rounded-lg border-2 p-4 transition-colors',
+                    'flex cursor-pointer gap-4 rounded-lg border-2 p-4 transition-all',
                     isSelected
-                      ? 'border-[#111111] bg-[#fafafa]'
-                      : 'border-[#E5E5E5] hover:border-[#999999]'
+                      ? cn(box.active, 'backdrop-blur-md')
+                      : cn(box.base, box.hover)
                   )}
+                  style={isSelected ? pkgSelectedStyle : undefined}
                 >
                   <input
                     type="radio"
@@ -544,15 +644,15 @@ export default function RegistrationForm({ event, packages, globalChurches }: Pr
 
                   <div className="min-w-0 flex-1">
                     <div className="flex items-baseline justify-between gap-3">
-                      <span className="font-semibold text-[#111111]">Package {pkg.name}</span>
-                      <span className="shrink-0 font-semibold text-[#111111]">
+                      <span className={`font-semibold ${c.heading}`}>{pkg.name}</span>
+                      <span className={`shrink-0 font-semibold ${c.heading}`}>
                         {formatJPY(pkg.stripe_price_jpy ?? pkg.price)}
                       </span>
                     </div>
                     <ul className="mt-2.5 space-y-1.5">
                       {pkg.toolkit_items.map((item, i) => (
-                        <li key={i} className="flex items-center gap-2 text-sm text-muted">
-                          <span className="size-1 shrink-0 rounded-full bg-muted" />
+                        <li key={i} className={`flex items-center gap-2 text-sm ${c.subtext}`}>
+                          <span className="size-1 shrink-0 rounded-full bg-current" />
                           {item}
                         </li>
                       ))}
@@ -561,12 +661,15 @@ export default function RegistrationForm({ event, packages, globalChurches }: Pr
 
                   {/* Radio indicator */}
                   <div
-                    className={cn(
-                      'mt-0.5 size-4 shrink-0 rounded-full border-2 flex items-center justify-center',
-                      isSelected ? 'border-[#111111]' : 'border-[#D1D1D1]'
-                    )}
+                    className="mt-0.5 size-4 shrink-0 rounded-full border-2 flex items-center justify-center"
+                    style={isSelected
+                      ? { borderColor: theme.accentColor }
+                      : { borderColor: isDark ? 'rgba(255,255,255,0.3)' : '#D1D1D1' }
+                    }
                   >
-                    {isSelected && <div className="size-2 rounded-full bg-[#111111]" />}
+                    {isSelected && (
+                      <div className="size-2 rounded-full" style={{ backgroundColor: theme.accentColor }} />
+                    )}
                   </div>
                 </label>
               )
@@ -574,110 +677,98 @@ export default function RegistrationForm({ event, packages, globalChurches }: Pr
           </div>
         </section>
 
-        {/* ── Section: Payment Method ── */}
+        {/* ── Payment method ── */}
         <section className="space-y-4">
-          <h2 className="text-xs font-semibold uppercase tracking-widest text-[#111111]">
+          <h2 className={`text-xs font-semibold uppercase tracking-widest ${c.sectionHead}`}>
             Payment Method
           </h2>
 
-          {/* Toggle */}
           <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => setPaymentMethod('manual')}
-              className={cn(
-                'rounded-lg border-2 px-4 py-3 text-left transition-colors',
-                paymentMethod === 'manual'
-                  ? 'border-[#111111] bg-[#fafafa]'
-                  : 'border-[#E5E5E5] hover:border-[#999999]'
-              )}
-            >
-              <div className="text-sm font-semibold text-[#111111]">Manual Payment</div>
-              <div className="mt-0.5 text-xs text-muted">Japan local · Bank / PayPay</div>
-            </button>
-            <button
-              type="button"
-              onClick={() => setPaymentMethod('card')}
-              className={cn(
-                'rounded-lg border-2 px-4 py-3 text-left transition-colors',
-                paymentMethod === 'card'
-                  ? 'border-[#111111] bg-[#fafafa]'
-                  : 'border-[#E5E5E5] hover:border-[#999999]'
-              )}
-            >
-              <div className="text-sm font-semibold text-[#111111]">Pay by Card</div>
-              <div className="mt-0.5 text-xs text-muted">International · All currencies</div>
-            </button>
+            {(['manual', 'card'] as const).map((m) => {
+              const active = paymentMethod === m
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setPaymentMethod(m)}
+                  className={cn(
+                    'rounded-lg border-2 px-4 py-3 text-left transition-all',
+                    active ? cn(box.active, 'backdrop-blur-md') : cn(box.base, box.hover)
+                  )}
+                  style={active ? { borderColor: theme.accentColor } : undefined}
+                >
+                  <div className={`text-sm font-semibold ${c.heading}`}>
+                    {m === 'manual' ? 'Manual Payment' : 'Pay by Card'}
+                  </div>
+                  <div className={`mt-0.5 text-xs ${c.subtext}`}>
+                    {m === 'manual' ? 'Japan local · Bank / PayPay' : 'International · All currencies'}
+                  </div>
+                </button>
+              )
+            })}
           </div>
 
-          {/* ── Manual Payment Details ── */}
+          {/* ── Manual payment ── */}
           {paymentMethod === 'manual' && (
             <div className="space-y-5">
-              {/* Bank accordion */}
-              <div className="rounded-lg border border-[#E5E5E5] overflow-hidden divide-y divide-[#E5E5E5]">
+              <div className={cn('rounded-lg overflow-hidden divide-y', box.base, box.divide)}>
                 {BANK_OPTIONS.map((bank) => {
                   const isOpen = openBank === bank.id
                   return (
                     <div key={bank.id}>
-                      {/* Accordion header */}
                       <button
                         type="button"
                         onClick={() => setOpenBank(isOpen ? null : bank.id)}
                         className={cn(
                           'w-full flex items-center justify-between px-4 py-3 text-left transition-colors',
-                          isOpen ? 'bg-[#fafafa]' : 'bg-white hover:bg-[#fafafa]'
+                          isOpen ? box.subtle : cn('bg-transparent', box.hover)
                         )}
                       >
-                        <span className="text-xs font-semibold uppercase tracking-widest text-muted">
+                        <span className={`text-xs font-semibold uppercase tracking-widest ${c.subtext}`}>
                           {bank.label}
                         </span>
                         <svg
-                          className={cn('size-4 text-muted transition-transform duration-200', isOpen && 'rotate-180')}
+                          className={cn('size-4 transition-transform duration-200', c.subtext, isOpen && 'rotate-180')}
                           fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
                         >
                           <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                         </svg>
                       </button>
 
-                      {/* Accordion body */}
                       {isOpen && (
-                        <div className="border-t border-[#E5E5E5] bg-[#fafafa] p-4 space-y-4">
-                          {/* Note (e.g. Cash) */}
+                        <div className={cn(
+                          'border-t p-4 space-y-4',
+                          boxGlass ? 'border-white/15 bg-white/10' : isDark ? 'border-white/10 bg-white/5' : 'border-[#E5E5E5] bg-[#fafafa]'
+                        )}>
                           {bank.note && (
-                            <p className="text-xs text-muted leading-relaxed">{bank.note}</p>
+                            <p className={`text-xs leading-relaxed ${c.subtext}`}>{bank.note}</p>
                           )}
-
-                          {/* Detail sections */}
                           {bank.sections?.map((section, si) => (
-                            <div key={si} className={cn(si > 0 && 'pt-4 border-t border-[#E5E5E5]')}>
+                            <div key={si} className={cn(si > 0 && cn('pt-4 border-t', isDark ? 'border-white/10' : 'border-[#E5E5E5]'))}>
                               {section.title && (
-                                <p className="text-[10px] font-bold uppercase tracking-widest text-[#111111] mb-2">
+                                <p className={`text-[10px] font-bold uppercase tracking-widest mb-2 ${c.sectionHead}`}>
                                   {section.title}
                                 </p>
                               )}
                               <div className="space-y-1.5">
                                 {section.rows.map((row, ri) => (
                                   <div key={ri} className="flex items-start justify-between gap-3">
-                                    <span className="text-[11px] text-muted shrink-0 min-w-[90px] pt-px">
+                                    <span className={`text-[11px] shrink-0 min-w-[90px] pt-px ${c.subtext}`}>
                                       {row.label}
                                     </span>
                                     <div className="flex items-center gap-2 min-w-0">
-                                      <span className="text-xs font-medium text-[#111111] text-right break-all">
+                                      <span className={`text-xs font-medium text-right break-all ${c.heading}`}>
                                         {row.value}
                                       </span>
-                                      {row.copyable && (
-                                        <CopyButton text={row.copyValue ?? row.value} />
-                                      )}
+                                      {row.copyable && <CopyButton text={row.copyValue ?? row.value} />}
                                     </div>
                                   </div>
                                 ))}
                               </div>
                             </div>
                           ))}
-
-                          {/* PayPay QR */}
                           {bank.hasQR && (
-                            <div className="pt-4 border-t border-[#E5E5E5] flex flex-col items-center gap-3">
+                            <div className={cn('pt-4 border-t flex flex-col items-center gap-3', isDark ? 'border-white/10' : 'border-[#E5E5E5]')}>
                               {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img
                                 src={PAYPAY_QR_IMAGE}
@@ -690,16 +781,19 @@ export default function RegistrationForm({ event, packages, globalChurches }: Pr
                                 }}
                               />
                               <div
-                                className="h-40 w-40 flex-col items-center justify-center rounded-md border-2 border-dashed border-[#E5E5E5] text-center"
+                                className={cn(
+                                  'h-40 w-40 flex-col items-center justify-center rounded-md border-2 border-dashed text-center',
+                                  isDark ? 'border-white/20' : 'border-[#E5E5E5]'
+                                )}
                                 style={{ display: 'none' }}
                               >
-                                <p className="text-xs text-muted">QR coming soon</p>
+                                <p className={`text-xs ${c.subtext}`}>QR coming soon</p>
                               </div>
                               <a
                                 href={PAYPAY_LINK}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-xs font-medium text-[#111111] underline"
+                                className={`text-xs font-medium underline ${c.heading}`}
                               >
                                 Open PayPay link
                               </a>
@@ -712,27 +806,29 @@ export default function RegistrationForm({ event, packages, globalChurches }: Pr
                 })}
               </div>
 
-              {/* Screenshot upload — hidden for cash */}
+              {/* Screenshot upload */}
               {openBank !== 'cash' && (
                 <div className="space-y-2">
                   <div>
-                    <p className="text-sm font-medium text-[#111111]">
+                    <p className={`text-sm font-medium ${c.heading}`}>
                       Upload Payment Proof <span className="text-error">*</span>
                     </p>
-                    <p className="mt-0.5 text-xs text-muted">
-                      Screenshot of your bank or PayPay transfer — JPG, PNG, or WebP, max 5 MB.
+                    <p className={`mt-0.5 text-xs ${c.subtext}`}>
+                      Screenshot of your bank or PayPay transfer &mdash; JPG, PNG, or WebP, max 5 MB.
                     </p>
                   </div>
                   <FieldError message={fieldErrors.payment_screenshot} />
                   <label
                     className={cn(
-                      'flex cursor-pointer flex-col items-center justify-center gap-2.5 rounded-lg border-2 border-dashed px-6 py-8 transition-colors',
+                      'flex cursor-pointer flex-col items-center justify-center gap-2.5 rounded-lg border-2 border-dashed px-6 py-8 transition-all',
                       fileName
-                        ? 'border-[#111111] bg-[#fafafa]'
+                        ? cn(box.active, 'backdrop-blur-md')
                         : fieldErrors.payment_screenshot
                         ? 'border-error/40 bg-error/5'
-                        : 'border-[#E5E5E5] hover:border-[#999999]'
+                        : cn(boxGlass ? 'border-white/20 bg-white/10' : isDark ? 'border-white/20 bg-white/5' : 'border-[#E5E5E5] bg-transparent',
+                             box.hover)
                     )}
+                    style={fileName ? { borderColor: theme.accentColor } : undefined}
                   >
                     <input
                       type="file"
@@ -743,39 +839,38 @@ export default function RegistrationForm({ event, packages, globalChurches }: Pr
                     />
                     {fileName ? (
                       <>
-                        <svg className="size-5 text-[#111111]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} style={{ color: theme.accentColor }}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                         </svg>
-                        <span className="max-w-full break-all text-center text-sm font-medium text-[#111111]">{fileName}</span>
-                        <span className="text-xs text-muted">Click to change</span>
+                        <span className={`max-w-full break-all text-center text-sm font-medium ${c.heading}`}>{fileName}</span>
+                        <span className={`text-xs ${c.subtext}`}>Click to change</span>
                       </>
                     ) : (
                       <>
-                        <svg className="size-5 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <svg className={`size-5 ${c.subtext}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
                         </svg>
-                        <span className="text-sm font-medium text-[#111111]">Click to upload</span>
-                        <span className="text-xs text-muted">JPG · PNG · WebP · max 5 MB</span>
+                        <span className={`text-sm font-medium ${c.heading}`}>Click to upload</span>
+                        <span className={`text-xs ${c.subtext}`}>JPG &middot; PNG &middot; WebP &middot; max 5 MB</span>
                       </>
                     )}
                   </label>
                 </div>
               )}
 
-              {/* Hidden inputs */}
               <input type="hidden" name="event_id" value={event.id} />
-
               <ManualSubmitButton />
+              <div className="pb-8" />
             </div>
           )}
 
-          {/* ── Card / Stripe Payment ── */}
+          {/* ── Card / Stripe ── */}
           {paymentMethod === 'card' && (
             <div className="space-y-4">
               {stripeLoading && (
-                <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted">
+                <div className={`flex items-center justify-center gap-2 py-8 text-sm ${c.subtext}`}>
                   <Spinner />
-                  Setting up payment…
+                  Setting up payment...
                 </div>
               )}
 
@@ -784,8 +879,7 @@ export default function RegistrationForm({ event, packages, globalChurches }: Pr
                   {stripeError}
                   {selectedPackage && !selectedPackage.stripe_price_jpy && (
                     <p className="mt-1 text-xs">
-                      Please contact the event organizer to arrange international payment for this
-                      package.
+                      Please contact the event organizer to arrange international payment for this package.
                     </p>
                   )}
                 </div>
@@ -793,43 +887,42 @@ export default function RegistrationForm({ event, packages, globalChurches }: Pr
 
               {!stripeLoading && !stripeError && clientSecret && (
                 <>
-                  {/* JPY price callout */}
                   {feeBreakdown && (
-                    <div className="rounded-lg border border-[#E5E5E5] overflow-hidden text-sm">
-                      <div className="flex justify-between px-4 py-2.5 bg-[#fafafa]">
-                        <span className="text-muted">Ticket price</span>
-                        <span className="text-[#111111]">{formatJPY(feeBreakdown.net)}</span>
+                    <div className={cn('rounded-lg overflow-hidden text-sm', box.base)}>
+                      <div className={cn('flex justify-between px-4 py-2.5', box.subtle)}>
+                        <span className={c.subtext}>Ticket price</span>
+                        <span className={c.heading}>{formatJPY(feeBreakdown.net)}</span>
                       </div>
-                      <div className="flex justify-between px-4 py-2.5 border-t border-[#E5E5E5] bg-[#fafafa]">
-                        <span className="text-muted">Card processing fee</span>
-                        <span className="text-[#111111]">3.95%</span>
+                      <div className={cn('flex justify-between px-4 py-2.5 border-t', box.subtle,
+                        boxGlass ? 'border-white/15' : isDark ? 'border-white/10' : 'border-[#E5E5E5]')}>
+                        <span className={c.subtext}>Card processing fee</span>
+                        <span className={c.heading}>3.95%</span>
                       </div>
-                      <div className="flex justify-between px-4 py-3 border-t border-[#E5E5E5]">
-                        <span className="font-semibold text-[#111111]">Total charged</span>
-                        <span className="font-semibold text-[#111111]">{formatJPY(feeBreakdown.net)} + 3.95%</span>
+                      <div className={cn('flex justify-between px-4 py-3 border-t',
+                        boxGlass ? 'border-white/15' : isDark ? 'border-white/10' : 'border-[#E5E5E5]')}>
+                        <span className={`font-semibold ${c.heading}`}>Total charged</span>
+                        <span className={`font-semibold ${c.heading}`}>{formatJPY(feeBreakdown.net)} + 3.95%</span>
                       </div>
                     </div>
                   )}
 
-                  {/* Payment remark */}
                   <div>
-                    <label htmlFor="card_remark" className="block text-sm font-medium text-[#111111] mb-1.5">
+                    <label htmlFor="card_remark" className={`block text-sm font-medium mb-1.5 ${c.label}`}>
                       Payment remark{' '}
-                      <span className="font-normal text-muted">(optional)</span>
+                      <span className={`font-normal ${c.subtext}`}>(optional)</span>
                     </label>
                     <input
                       id="card_remark"
                       name="card_remark"
                       type="text"
                       placeholder="e.g. Card belongs to Andrew Tantomo (my husband)"
-                      className="w-full rounded-btn border border-[#E5E5E5] bg-white px-3 py-2 text-sm text-[#111111] placeholder:text-muted focus:border-[#111111] focus:outline-none"
+                      className={inputCls}
                     />
-                    <p className="mt-1 text-xs text-muted">
+                    <p className={`mt-1 text-xs ${c.subtext}`}>
                       Use this if the card holder&apos;s name differs from the registrant&apos;s name.
                     </p>
                   </div>
 
-                  {/* Stripe Elements */}
                   <Elements
                     stripe={stripePromise}
                     options={{ clientSecret, appearance: STRIPE_APPEARANCE, fonts: STRIPE_FONTS }}
@@ -840,26 +933,36 @@ export default function RegistrationForm({ event, packages, globalChurches }: Pr
                       fieldErrors={fieldErrors}
                       onFieldErrors={(errs) => {
                         setFieldErrors(errs)
-                        // Scroll to top of form to show errors
                         formRef.current?.scrollIntoView({ behavior: 'smooth' })
                       }}
                       onError={(msg) => setGlobalError(msg)}
                     />
                   </Elements>
 
-                  <p className="text-center text-xs text-muted">
-                    Your card details are processed securely by Stripe. We never store card
-                    information.
+                  <p className={`text-center text-xs ${c.subtext}`}>
+                    Your card details are processed securely by Stripe. We never store card information.
                   </p>
                 </>
               )}
 
-              {/* Hidden event_id for stripe path too (used by createStripeRegistration) */}
               <input type="hidden" name="event_id" value={event.id} />
             </div>
           )}
         </section>
+        <div className="pb-8" />
       </form>
-    </div>
+    </>
+  )
+
+  return (
+    <FormBackground theme={theme}>
+      <div style={formVars} className={isCard ? 'min-h-screen px-4 py-0' : 'contents'}>
+        {isCard ? (
+          <div className={cardCls}>{content}</div>
+        ) : (
+          content
+        )}
+      </div>
+    </FormBackground>
   )
 }

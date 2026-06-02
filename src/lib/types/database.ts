@@ -42,6 +42,66 @@ export function resolveCoreFields(saved: CoreField[] | null | undefined): CoreFi
   })
 }
 
+export type FormBgType      = 'solid' | 'gradient'
+export type FormCardStyle   = 'transparent' | 'glass' | 'white' | 'dark'
+export type FormButtonShape = 'sharp' | 'rounded' | 'pill'
+export type FormInputStyle  = 'outlined' | 'filled' | 'underline'
+export type FormFontFamily  = 'geist' | 'inter' | 'poppins' | 'raleway' | 'playfair' | 'montserrat'
+
+export interface FormTheme {
+  // Background
+  type:          FormBgType
+  color1:        string   // solid: bg colour | gradient: from colour
+  color2:        string   // gradient: to colour (unused for solid)
+  angle:         number   // gradient angle in degrees (0-360)
+  // Particles — independent overlay on top of any background
+  particles:      boolean
+  particleColor:  string
+  // Text colours ('' = auto-derive from background darkness)
+  textColor:     string
+  mutedColor:    string
+  // Accent
+  accentColor:   string   // buttons, radio fills, focus rings
+  // Typography
+  fontFamily:    FormFontFamily
+  // Layout
+  cardStyle:     FormCardStyle
+  // Components
+  buttonShape:   FormButtonShape
+  inputStyle:    FormInputStyle
+}
+
+export const DEFAULT_FORM_THEME: FormTheme = {
+  type:          'solid',
+  color1:        '#ffffff',
+  color2:        '#6366f1',
+  angle:         135,
+  particles:     false,
+  particleColor: '#6366f1',
+  textColor:     '',
+  mutedColor:    '',
+  accentColor:   '#111111',
+  fontFamily:    'geist',
+  cardStyle:     'transparent',
+  buttonShape:   'rounded',
+  inputStyle:    'outlined',
+}
+
+export function resolveTheme(saved: Partial<FormTheme> | null | undefined): FormTheme {
+  return { ...DEFAULT_FORM_THEME, ...(saved ?? {}) }
+}
+
+/** Returns true if the color is dark enough to need white text */
+export function isColorDark(hex: string): boolean {
+  const c = hex.replace('#', '')
+  if (c.length < 6) return false
+  const r = parseInt(c.slice(0, 2), 16)
+  const g = parseInt(c.slice(2, 4), 16)
+  const b = parseInt(c.slice(4, 6), 16)
+  // Perceived luminance
+  return (r * 299 + g * 587 + b * 114) / 1000 < 128
+}
+
 export interface Event {
   id: string
   name: string
@@ -58,6 +118,7 @@ export interface Event {
   early_bird_auto_change: boolean
   early_bird_end_date: string | null
   currency: string
+  form_theme: Partial<FormTheme> | null
   created_at: string
 }
 
