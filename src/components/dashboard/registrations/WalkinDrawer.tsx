@@ -85,7 +85,7 @@ export default function WalkinDrawer({ eventId, packages, eventPricing, onClose 
         <div className="flex shrink-0 items-center justify-between border-b border-[#E5E5E5] px-6 py-4">
           <div>
             <h2 className="text-sm font-semibold text-[#111111]">Walk-in Registration</h2>
-            <p className="mt-0.5 text-xs text-muted">Add a registrant manually â€” no payment upload needed</p>
+            <p className="mt-0.5 text-xs text-muted">Add a registrant manually ” no payment upload needed</p>
           </div>
           <button
             onClick={onClose}
@@ -258,7 +258,7 @@ export default function WalkinDrawer({ eventId, packages, eventPricing, onClose 
             disabled={saving}
             className="w-full rounded-btn bg-[#111111] py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-80 disabled:opacity-40"
           >
-            {saving ? 'Addingâ€¦' : 'Add Registrant'}
+            {saving ? 'Adding¦' : 'Add Registrant'}
           </button>
         </div>
       </div>

@@ -168,7 +168,7 @@ export default function BlastClient({ events, packages, churches, initialBlasts 
         ))}
       </div>
 
-      {/* â”€â”€ Compose â”€â”€ */}
+      {/* ”” Compose ”” */}
       {tab === 'compose' && (
         <div className="space-y-6 pt-6">
           {error && (
@@ -176,7 +176,7 @@ export default function BlastClient({ events, packages, churches, initialBlasts 
           )}
           {sent && (
             <p className="rounded-lg border border-success/30 bg-success/5 px-4 py-3 text-xs text-success">
-              âœ“ Sent to {sent.count} recipient{sent.count !== 1 ? 's' : ''} successfully.
+              œ“ Sent to {sent.count} recipient{sent.count !== 1 ? 's' : ''} successfully.
             </p>
           )}
 
@@ -196,7 +196,7 @@ export default function BlastClient({ events, packages, churches, initialBlasts 
             <div className="flex items-center justify-between mb-3">
               <p className="text-xs font-semibold uppercase tracking-widest text-muted">Recipients</p>
               <span className="text-xs text-muted">
-                {previewing ? 'Countingâ€¦' : recipientCount !== null ? (
+                {previewing ? 'Counting¦' : recipientCount !== null ? (
                   <span className={recipientCount === 0 ? 'text-error' : 'text-[#111111] font-medium'}>
                     {recipientCount} recipient{recipientCount !== 1 ? 's' : ''}
                   </span>
@@ -284,7 +284,7 @@ export default function BlastClient({ events, packages, churches, initialBlasts 
                     <span className="text-muted">
                       <span className="text-[#111111] font-medium">{validEmails.length}</span> valid
                       {invalidEmails.length > 0 && (
-                        <span className="text-error ml-2">Â· {invalidEmails.length} invalid</span>
+                        <span className="text-error ml-2">· {invalidEmails.length} invalid</span>
                       )}
                     </span>
                   )}
@@ -318,7 +318,7 @@ export default function BlastClient({ events, packages, churches, initialBlasts 
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
                 </svg>
-                Sendingâ€¦
+                Sending¦
               </span>
             ) : recipientCount !== null && recipientCount > 0
               ? `Send to ${recipientCount} recipient${recipientCount !== 1 ? 's' : ''}`
@@ -327,7 +327,7 @@ export default function BlastClient({ events, packages, churches, initialBlasts 
         </div>
       )}
 
-      {/* â”€â”€ History â”€â”€ */}
+      {/* ”” History ”” */}
       {tab === 'history' && (
         <div className="pt-6 space-y-4">
           {blasts.length === 0 ? (
@@ -367,7 +367,7 @@ export default function BlastClient({ events, packages, churches, initialBlasts 
                   <p className="text-sm font-medium text-error">
                     Delete {selected.size === 1 ? 'this blast' : `these ${selected.size} blasts`}?
                   </p>
-                  <p className="text-xs text-muted">This removes them from history only â€” emails already sent are not recalled.</p>
+                  <p className="text-xs text-muted">This removes them from history only ” emails already sent are not recalled.</p>
                   {deleteError && <p className="text-xs text-error">{deleteError}</p>}
                   <div className="flex gap-2">
                     <button
@@ -384,7 +384,7 @@ export default function BlastClient({ events, packages, churches, initialBlasts 
                       disabled={deleting}
                       className="flex-1 rounded-btn bg-error py-2 text-sm font-medium text-white hover:opacity-80 disabled:opacity-40"
                     >
-                      {deleting ? 'Deletingâ€¦' : 'Yes, Delete'}
+                      {deleting ? 'Deleting¦' : 'Yes, Delete'}
                     </button>
                   </div>
                 </div>
@@ -432,7 +432,7 @@ export default function BlastClient({ events, packages, churches, initialBlasts 
                           </p>
                         )}
                         <p className="mt-1 text-xs text-muted">
-                          {blast.recipient_count} recipient{blast.recipient_count !== 1 ? 's' : ''} Â· {formatDateTime(blast.sent_at)}
+                          {blast.recipient_count} recipient{blast.recipient_count !== 1 ? 's' : ''} · {formatDateTime(blast.sent_at)}
                         </p>
                       </div>
                     </div>

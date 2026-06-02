@@ -58,7 +58,7 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
     <div className="flex items-start gap-4 border-b border-[#E5E5E5] py-3 last:border-0">
       <span className="w-28 shrink-0 text-xs font-medium text-muted pt-0.5">{label}</span>
       <span className="text-sm text-[#111111]">
-        {value ?? <span className="text-muted">â€”</span>}
+        {value ?? <span className="text-muted">”</span>}
       </span>
     </div>
   )
@@ -68,7 +68,7 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
   const isOpen = !!registration
   const canEdit = ['super_admin', 'admin'].includes(staffRole)
 
-  // â”€â”€ Local state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ”” Local state ”””””””””””””””””””””””””””””””””””””””””””””””
   const [localStatus, setLocalStatus] = useState<PaymentStatus | null>(null)
   const [localNotes, setLocalNotes] = useState<string | null>(null)
   const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null)
@@ -96,7 +96,7 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
   const currentStatus = localStatus ?? reg?.payment_status ?? 'pending'
   const currentNotes = localNotes !== null ? localNotes : reg?.payment_notes ?? null
 
-  // â”€â”€ Load screenshot + QR when drawer opens â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ”” Load screenshot + QR when drawer opens ””””””””””””””””””””
   useEffect(() => {
     if (!reg) return
 
@@ -110,7 +110,7 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
     setActionError('')
     setTokenCopied(false)
 
-    // QR â€” always load for admin
+    // QR ” always load for admin
     getQRDataUrl(reg.qr_token).then(setQrDataUrl).catch(console.error)
 
     // Screenshot
@@ -206,7 +206,7 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
       >
         {!reg ? null : (
           <>
-            {/* â”€â”€ Header â”€â”€ */}
+            {/* ”” Header ”” */}
             <div className="flex items-start justify-between border-b border-[#E5E5E5] px-6 py-4 gap-4">
               <div className="min-w-0">
                 <p className="font-semibold text-[#111111] truncate">
@@ -232,10 +232,10 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
               </div>
             </div>
 
-            {/* â”€â”€ Scrollable body â”€â”€ */}
+            {/* ”” Scrollable body ”” */}
             <div className="flex-1 overflow-y-auto px-6 py-6 space-y-7">
 
-              {/* â”€â”€ Details / Edit form â”€â”€ */}
+              {/* ”” Details / Edit form ”” */}
               <section>
                 <SectionTitle>Details</SectionTitle>
 
@@ -262,7 +262,7 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
                     {editError && <p className="text-xs text-error">{editError}</p>}
                     <div className="flex gap-2">
                       <Button size="sm" onClick={saveEdit} disabled={editPending}>
-                        {editPending ? 'Savingâ€¦' : 'Save'}
+                        {editPending ? 'Saving¦' : 'Save'}
                       </Button>
                       <Button variant="secondary" size="sm" onClick={() => setIsEditing(false)} disabled={editPending}>
                         Cancel
@@ -274,14 +274,14 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
                     {reg.events && (
                       <Row
                         label="Event"
-                        value={`${reg.events.name} Â· ${formatDate(reg.events.date)}`}
+                        value={`${reg.events.name} · ${formatDate(reg.events.date)}`}
                       />
                     )}
                     <Row
                       label="Package"
                       value={
                         reg.packages
-                          ? `Package ${reg.packages.name} â€” ${formatCurrency(
+                          ? `Package ${reg.packages.name} ” ${formatCurrency(
                               reg.amount_paid ?? reg.packages.price,
                               reg.events?.currency ?? 'IDR'
                             )}${reg.is_early_bird ? ' (Early bird)' : ''}`
@@ -305,7 +305,7 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
                 )}
               </section>
 
-              {/* â”€â”€ Toolkit items â”€â”€ */}
+              {/* ”” Toolkit items ”” */}
               <section>
                 <SectionTitle>Toolkit Items</SectionTitle>
                 {reg.packages?.toolkit_items?.length ? (
@@ -322,7 +322,7 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
                 )}
               </section>
 
-              {/* â”€â”€ Payment screenshot â”€â”€ */}
+              {/* ”” Payment screenshot ”” */}
               <section>
                 <SectionTitle>Payment Screenshot</SectionTitle>
                 {screenshotLoading && (
@@ -349,7 +349,7 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
                 )}
               </section>
 
-              {/* â”€â”€ QR Code â”€â”€ */}
+              {/* ”” QR Code ”” */}
               <section>
                 <SectionTitle>QR Code</SectionTitle>
                 {qrDataUrl ? (
@@ -374,13 +374,13 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
                         </a>
                         <p className="text-xs text-muted leading-relaxed">
                           {currentStatus === 'verified'
-                            ? 'Active â€” scanner will accept this.'
+                            ? 'Active ” scanner will accept this.'
                             : 'Inactive until payment is verified.'}
                         </p>
                       </div>
                     </div>
 
-                    {/* Manual token â€” for manual check-in */}
+                    {/* Manual token ” for manual check-in */}
                     <div className="rounded-lg border border-[#E5E5E5] bg-[#fafafa] px-4 py-3">
                       <p className="mb-1.5 text-xs font-medium text-muted">Manual check-in token</p>
                       <div className="flex items-center gap-2">
@@ -396,7 +396,7 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
                           }}
                           className="shrink-0 rounded-btn border border-[#E5E5E5] px-3 py-1.5 text-xs font-medium text-muted hover:bg-white hover:text-[#111111] transition-colors"
                         >
-                          {tokenCopied ? 'Copied âœ“' : 'Copy'}
+                          {tokenCopied ? 'Copied œ“' : 'Copy'}
                         </button>
                       </div>
                     </div>
@@ -406,7 +406,7 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
                 )}
               </section>
 
-              {/* â”€â”€ Attendance â”€â”€ */}
+              {/* ”” Attendance ”” */}
               <section>
                 <SectionTitle>Attendance</SectionTitle>
                 {(() => {
@@ -419,7 +419,7 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
                         value={
                           toolkit ? (
                             <span className="text-success text-xs font-medium">
-                              Collected Â· {formatDateTime(toolkit.scanned_at)}
+                              Collected · {formatDateTime(toolkit.scanned_at)}
                             </span>
                           ) : (
                             <span className="text-xs text-muted">Not collected</span>
@@ -431,7 +431,7 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
                         value={
                           event ? (
                             <span className="text-success text-xs font-medium">
-                              Attended Â· {formatDateTime(event.scanned_at)}
+                              Attended · {formatDateTime(event.scanned_at)}
                             </span>
                           ) : (
                             <span className="text-xs text-muted">Not attended</span>
@@ -443,7 +443,7 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
                 })()}
               </section>
 
-              {/* â”€â”€ Payment actions â”€â”€ */}
+              {/* ”” Payment actions ”” */}
               {canEdit && (
                 <section>
                   <SectionTitle>Payment</SectionTitle>
@@ -469,7 +469,7 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
                           rows={3}
                           value={rejectReason}
                           onChange={(e) => setRejectReason(e.target.value)}
-                          placeholder="Explain why the payment was rejectedâ€¦"
+                          placeholder="Explain why the payment was rejected¦"
                           className="w-full rounded-btn border border-[#E5E5E5] px-3 py-2 text-sm text-[#111111] placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-[#111111] focus:border-transparent resize-none"
                         />
                       </div>
@@ -480,7 +480,7 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
                           disabled={actionPending || !rejectReason.trim()}
                           className="bg-error hover:bg-error/90"
                         >
-                          {actionPending ? 'Rejectingâ€¦' : 'Confirm Rejection'}
+                          {actionPending ? 'Rejecting¦' : 'Confirm Rejection'}
                         </Button>
                         <Button
                           variant="secondary"
@@ -503,7 +503,7 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
                           disabled={actionPending}
                           className="border border-success bg-white text-success hover:bg-success/5"
                         >
-                          {actionPending ? 'Updatingâ€¦' : 'Verify Payment'}
+                          {actionPending ? 'Updating¦' : 'Verify Payment'}
                         </Button>
                       )}
                       {currentStatus !== 'rejected' && (
@@ -519,7 +519,7 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
                       )}
                       {currentStatus === 'verified' && (
                         <p className="text-xs text-success font-medium self-center">
-                          Payment verified â€” confirmation email sent.
+                          Payment verified ” confirmation email sent.
                         </p>
                       )}
                     </div>
@@ -531,7 +531,7 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
         )}
       </aside>
 
-      {/* â”€â”€ Screenshot full-size modal â”€â”€ */}
+      {/* ”” Screenshot full-size modal ”” */}
       {screenshotModal && screenshotUrl && (
         <div
           className="fixed inset-0 z-60 flex items-center justify-center bg-black/70 p-6"

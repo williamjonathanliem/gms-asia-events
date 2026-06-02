@@ -86,22 +86,22 @@ export default function SearchFilters({
           <option value="all">All events</option>
           {activeEventId && (
             <option value={activeEventId}>
-              Active event Â·{' '}
-              {eventsForPicker.find((e) => e.id === activeEventId)?.name ?? 'â€”'}
+              Active event ·{' '}
+              {eventsForPicker.find((e) => e.id === activeEventId)?.name ?? '”'}
             </option>
           )}
           {eventsForPicker
             .filter((ev) => ev.id !== activeEventId)
             .map((ev) => (
               <option key={ev.id} value={ev.id}>
-                {ev.name} Â· {formatDate(ev.date)}
+                {ev.name} · {formatDate(ev.date)}
               </option>
             ))}
         </Select>
       )}
 
       <Input
-        placeholder="Search name, email, NIJ, churchâ€¦"
+        placeholder="Search name, email, NIJ, church¦"
         defaultValue={searchParams.get('search') ?? ''}
         onChange={(e) => handleSearch(e.target.value)}
         className="w-full sm:w-64"

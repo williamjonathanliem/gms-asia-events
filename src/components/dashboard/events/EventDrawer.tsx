@@ -28,7 +28,7 @@ interface Props {
   staffRole: StaffRole
 }
 
-// â"€â"€ Copy link button â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+// "" Copy link button """"""""""""""""""""""""""""""""""""""""""
 function CopyLinkButton({ slug }: { slug: string }) {
   const [copied, setCopied] = useState(false)
 
@@ -54,13 +54,13 @@ function CopyLinkButton({ slug }: { slug: string }) {
         onClick={copy}
         className="shrink-0 rounded-md px-2.5 py-1 text-xs font-medium transition-colors hover:bg-white border border-[#E5E5E5] text-[#111111]"
       >
-        {copied ? 'Copied âœ"' : 'Copy Link'}
+        {copied ? 'Copied œ"' : 'Copy Link'}
       </button>
     </div>
   )
 }
 
-// â"€â"€ Toggle switch â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+// "" Toggle switch """""""""""""""""""""""""""""""""""""""""""""
 function Toggle({
   checked,
   onChange,
@@ -99,7 +99,7 @@ function Toggle({
   )
 }
 
-// â"€â"€ Main drawer â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+// "" Main drawer """""""""""""""""""""""""""""""""""""""""""""""
 export default function EventDrawer({ event, onClose, onEventSaved, onEventDeleted, staffRole }: Props) {
   const isSuperAdmin = staffRole === 'super_admin'
   const isNew = event === null
@@ -268,7 +268,7 @@ export default function EventDrawer({ event, onClose, onEventSaved, onEventDelet
 
         {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto">
-          {/* â"€â"€ Details tab â"€â"€ */}
+          {/* "" Details tab "" */}
           {(isNew || tab === 'details') && (
             <div className="space-y-5 px-6 py-6">
               {error && (
@@ -292,7 +292,7 @@ export default function EventDrawer({ event, onClose, onEventSaved, onEventDelet
                   URL Slug&ensp;
                   <span className="font-normal text-muted">
                     (used in /register/
-                    <strong className="text-[#111111]">{slug || 'â€¦'}</strong>
+                    <strong className="text-[#111111]">{slug || '¦'}</strong>
                     )
                   </span>
                 </Label>
@@ -372,7 +372,7 @@ export default function EventDrawer({ event, onClose, onEventSaved, onEventDelet
                       value={formSubtitle}
                       onChange={(e) => setFormSubtitle(e.target.value)}
                       rows={2}
-                      placeholder="Brief description shown below the headingâ€¦"
+                      placeholder="Brief description shown below the heading¦"
                       className="w-full rounded-btn border border-[#E5E5E5] bg-white px-3 py-2 text-sm text-[#111111] placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-[#111111] focus:border-transparent resize-none"
                     />
                   </div>
@@ -534,7 +534,7 @@ export default function EventDrawer({ event, onClose, onEventSaved, onEventDelet
                     </div>
                   )}
 
-                  {/* Confirmation panel â€" shared for both actions */}
+                  {/* Confirmation panel " shared for both actions */}
                   {dangerMode !== null && (
                     <div className={`space-y-4 rounded-lg border p-4 ${
                       dangerMode === 'delete'
@@ -595,8 +595,8 @@ export default function EventDrawer({ event, onClose, onEventSaved, onEventDelet
                           }`}
                         >
                           {dangerMode === 'delete'
-                            ? (deleting ? 'Deletingâ€¦' : 'Delete Event')
-                            : (resetting ? 'Resettingâ€¦' : 'Reset Event')}
+                            ? (deleting ? 'Deleting¦' : 'Delete Event')
+                            : (resetting ? 'Resetting¦' : 'Reset Event')}
                         </button>
                       </div>
                     </div>
@@ -606,7 +606,7 @@ export default function EventDrawer({ event, onClose, onEventSaved, onEventDelet
             </div>
           )}
 
-          {/* â"€â"€ Packages tab â"€â"€ */}
+          {/* "" Packages tab "" */}
           {!isNew && tab === 'packages' && (
             <PackageEditor
               eventId={event.id}
