@@ -58,7 +58,7 @@ export default function InstallButton({ variant = 'button' }: Props) {
         <div className="flex items-center gap-3">
           {/* App icon */}
           <div className="h-12 w-12 shrink-0 overflow-hidden rounded border border-[#E5E5E5]">
-            <Image src="/gmschurch_logo.jpg" alt="GMS Events" width={72} height={72} className="h-full w-full object-cover" />
+            <Image src="/icon-72.png" alt="GMS Events" width={72} height={72} className="h-full w-full object-cover" />
           </div>
 
           {/* Text */}
