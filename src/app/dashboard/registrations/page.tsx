@@ -118,8 +118,8 @@ export default async function RegistrationsPage({
     .select(
       `id, full_name, email, phone, gms_church, nij,
        payment_status, payment_notes, payment_screenshot_url, qr_token,
-       amount_paid, is_early_bird, created_at, package_id,
-       events(name, date, currency),
+       amount_paid, is_early_bird, created_at, package_id, custom_answers,
+       events(name, date, currency, custom_fields),
        packages(name, price, toolkit_items),
        attendance_logs(scan_type, scanned_at)`,
       { count: 'exact' }

@@ -266,10 +266,10 @@ function StaffDrawer({
 interface Props {
   initialStaff: StaffUser[]
   events: Pick<Event, 'id' | 'name' | 'date'>[]
-  currentUserId: string
+  currentUserEmail: string
 }
 
-export default function StaffClient({ initialStaff, events, currentUserId }: Props) {
+export default function StaffClient({ initialStaff, events, currentUserEmail }: Props) {
   const router = useRouter()
   const [staff, setStaff] = useState<StaffUser[]>(initialStaff)
   const [selected, setSelected] = useState<StaffUser | null | undefined>(undefined) // undefined = closed
@@ -340,7 +340,7 @@ export default function StaffClient({ initialStaff, events, currentUserId }: Pro
                 <tr key={member.id} className="hover:bg-[#fafafa] transition-colors">
                   <td className="px-4 py-3 max-w-[200px] truncate">
                     <span className="font-medium text-[#111111]">{member.email}</span>
-                    {member.id === currentUserId && (
+                    {member.email === currentUserEmail && (
                       <span className="ml-2 text-xs text-muted">(you)</span>
                     )}
                   </td>

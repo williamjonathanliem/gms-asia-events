@@ -32,8 +32,9 @@ export interface DrawerRegistration {
   is_early_bird: boolean
   created_at: string
   package_id: string
+  custom_answers: Record<string, string | boolean>
   packages: { name: string; price: number; toolkit_items: string[] } | null
-  events: { name: string; date: string; currency: string } | null
+  events: { name: string; date: string; currency: string; custom_fields: { id: string; label: string; type: string }[] } | null
   attendance_logs: { scan_type: string; scanned_at: string }[]
 }
 
@@ -291,6 +292,15 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
                     <Row label="NIJ" value={reg.nij} />
                     <Row label="Phone" value={reg.phone} />
                     <Row label="Registered" value={formatDateTime(reg.created_at)} />
+                    {/* Custom field answers */}
+                    {(reg.events?.custom_fields ?? []).map((field) => {
+                      const val = reg.custom_answers?.[field.id]
+                      if (val === undefined || val === null || val === '') return null
+                      const display = field.type === 'checkbox'
+                        ? (val ? 'Yes' : 'No')
+                        : String(val)
+                      return <Row key={field.id} label={field.label} value={display} />
+                    })}
                   </div>
                 )}
               </section>

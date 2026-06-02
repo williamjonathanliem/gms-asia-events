@@ -5,6 +5,7 @@ import StaffClient from '@/components/dashboard/staff/StaffClient'
 import type { Metadata } from 'next'
 import type { StaffUser, Event } from '@/lib/types/database'
 
+export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: 'Staff' }
 
 export default async function StaffPage() {
@@ -36,7 +37,7 @@ export default async function StaffPage() {
         <StaffClient
           initialStaff={(staffList ?? []) as StaffUser[]}
           events={(events ?? []) as Pick<Event, 'id' | 'name' | 'date'>[]}
-          currentUserId={staff.id}
+          currentUserEmail={staff.email}
         />
       </div>
     </div>

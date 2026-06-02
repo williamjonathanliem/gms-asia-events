@@ -4,7 +4,7 @@ import { useFormState, useFormStatus } from 'react-dom'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js'
 import { submitRegistration, createStripeRegistration, type RegisterFormState } from './actions'
-import { type Event, type Package } from '@/lib/types/database'
+import { type Event, type Package, type CustomField, resolveCoreFields } from '@/lib/types/database'
 import { GMS_CHURCHES } from '@/lib/constants'
 import { formatJPY, formatDate } from '@/lib/utils'
 import { cn } from '@/lib/utils'
@@ -14,14 +14,76 @@ import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { getStripePromise } from '@/lib/stripe-client'
 
-// ── PayPay / Bank transfer details ────────────────────────────
-// Upload the PayPay QR image to /public/paypay-qr.png when ready
-const PAYPAY_QR_IMAGE = '/paypay-qr.png' // set to null if not yet uploaded
+// ── Bank / payment accordion data ────────────────────────────
+const PAYPAY_QR_IMAGE = '/paypay-qr.png'
 const PAYPAY_LINK = 'https://qr.paypay.ne.jp/p2p01_zCcb7GDpzP9swuRY'
-const BANK_DETAILS = [
-  { bank: 'Yuucho Bank', account: '10950 - 17568871', name: 'ANDREW GETTY TANTOMO' },
-  { bank: 'Rakuten Bank', account: '12345 - 12345678', name: 'GMS TOKYO' },
-  { bank: 'PayPay', account: '070-9194-7415', name: 'VERICO CHRISTIAN JONATHAN' },
+
+type BankRow = { label: string; value: string; copyValue?: string; copyable?: boolean }
+type BankSection = { title?: string; rows: BankRow[] }
+type BankOption = {
+  id: string
+  label: string
+  sections?: BankSection[]
+  note?: string
+  hasQR?: boolean
+}
+
+const BANK_OPTIONS: BankOption[] = [
+  {
+    id: 'jppost',
+    label: 'JP Post Bank',
+    sections: [
+      {
+        title: 'JP Post Transfer',
+        rows: [
+          { label: 'Account Name', value: 'Andrew Getty Tantomo' },
+          { label: 'Code No.', value: '10950', copyable: true },
+          { label: 'Account No.', value: '17568871', copyable: true },
+        ],
+      },
+      {
+        title: 'Other Bank Transfer',
+        rows: [
+          { label: 'Account Name', value: 'Andrew Getty Tantomo' },
+          { label: 'Branch Code', value: '098', copyable: true },
+          { label: 'Account No.', value: '1756887', copyable: true },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'rakuten',
+    label: 'Rakuten Bank',
+    sections: [
+      {
+        rows: [
+          { label: 'Bank Name', value: '楽天銀行 (Rakuten Bank)' },
+          { label: 'Branch No.', value: '254', copyable: true },
+          { label: 'Branch Name', value: '第四営業支店 (Daiyon Eigyou Shiten)' },
+          { label: 'Account Name', value: 'シヤ）ゴスペルミッションステュワーズチャーチ' },
+          { label: 'Account No.', value: '7760827', copyable: true },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'cash',
+    label: 'Cash',
+    note: 'Pay in cash directly to your Church or CG leader. You will receive a receipt as proof. No screenshot upload needed — our admin will verify manually.',
+  },
+  {
+    id: 'paypay',
+    label: 'PayPay',
+    sections: [
+      {
+        rows: [
+          { label: 'Number', value: '070-9194-7415', copyValue: '07091947415', copyable: true },
+          { label: 'Name', value: 'VERICO CHRISTIAN JONATHAN' },
+        ],
+      },
+    ],
+    hasQR: true,
+  },
 ]
 
 // ── Stripe appearance matching the design system ──────────────
@@ -214,6 +276,7 @@ export default function RegistrationForm({ event, packages, globalChurches }: Pr
   const churches = globalChurches && globalChurches.length > 0 ? globalChurches : GMS_CHURCHES
   const [state, formAction] = useFormState(submitRegistration, initial)
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('manual')
+  const [openBank, setOpenBank] = useState<string | null>(null)
   const [selectedPkg, setSelectedPkg] = useState<string>(packages[0]?.id ?? '')
   const [fileName, setFileName] = useState<string>('')
   const [clientSecret, setClientSecret] = useState<string | null>(null)
@@ -374,6 +437,82 @@ export default function RegistrationForm({ event, packages, globalChurches }: Pr
           </div>
         </section>
 
+        {/* ── Section: Custom Fields ── */}
+        {(event.custom_fields ?? []).length > 0 && (
+          <section className="space-y-5">
+            <h2 className="text-xs font-semibold uppercase tracking-widest text-[#111111]">
+              Additional Information
+            </h2>
+            {(event.custom_fields as CustomField[]).map((field) => {
+              const key = `custom_${field.id}`
+              const fe = (fieldErrors as Record<string, string>)[key]
+              if (field.type === 'checkbox') {
+                return (
+                  <div key={field.id} className="flex items-start gap-3">
+                    <input
+                      id={key}
+                      name={key}
+                      type="checkbox"
+                      className="mt-0.5 size-4 rounded border-[#E5E5E5] accent-[#111111]"
+                    />
+                    <label htmlFor={key} className="text-sm text-[#111111] leading-snug">
+                      {field.label}
+                    </label>
+                  </div>
+                )
+              }
+              if (field.type === 'textarea') {
+                return (
+                  <div key={field.id}>
+                    <Label htmlFor={key} required={field.required}>{field.label}</Label>
+                    <textarea
+                      id={key}
+                      name={key}
+                      rows={3}
+                      placeholder={field.placeholder ?? ''}
+                      required={field.required}
+                      className={cn(
+                        'w-full rounded-btn border px-3 py-2 text-sm text-[#111111] placeholder:text-muted focus:border-[#111111] focus:outline-none resize-none',
+                        fe ? 'border-error' : 'border-[#E5E5E5]'
+                      )}
+                    />
+                    <FieldError message={fe} />
+                  </div>
+                )
+              }
+              if (field.type === 'select') {
+                return (
+                  <div key={field.id}>
+                    <Label htmlFor={key} required={field.required}>{field.label}</Label>
+                    <Select id={key} name={key} defaultValue="" required={field.required} className={fe ? 'border-error' : ''}>
+                      <option value="" disabled>Select an option</option>
+                      {(field.options ?? []).map((opt) => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                    </Select>
+                    <FieldError message={fe} />
+                  </div>
+                )
+              }
+              // default: text
+              return (
+                <div key={field.id}>
+                  <Label htmlFor={key} required={field.required}>{field.label}</Label>
+                  <Input
+                    id={key}
+                    name={key}
+                    type="text"
+                    placeholder={field.placeholder ?? ''}
+                    required={field.required}
+                    className={fe ? 'border-error' : ''}
+                  />
+                  <FieldError message={fe} />
+                </div>
+              )
+            })}
+          </section>
+        )}
+
         {/* ── Section: Package Selection ── */}
         <section className="space-y-4">
           <h2 className="text-xs font-semibold uppercase tracking-widest text-[#111111]">
@@ -474,157 +613,154 @@ export default function RegistrationForm({ event, packages, globalChurches }: Pr
           {/* ── Manual Payment Details ── */}
           {paymentMethod === 'manual' && (
             <div className="space-y-5">
-              {/* Bank details */}
-              <div className="rounded-lg border border-[#E5E5E5] divide-y divide-[#E5E5E5] overflow-hidden">
-                {BANK_DETAILS.map((detail) => (
-                  <div key={detail.bank} className="px-4 py-3">
-                    <p className="text-xs font-medium text-muted uppercase tracking-wide">
-                      {detail.bank}
-                    </p>
-                    <div className="mt-1 flex items-center justify-between">
-                      <p className="text-sm font-semibold text-[#111111]">{detail.account}</p>
-                      <CopyButton text={detail.account} />
+              {/* Bank accordion */}
+              <div className="rounded-lg border border-[#E5E5E5] overflow-hidden divide-y divide-[#E5E5E5]">
+                {BANK_OPTIONS.map((bank) => {
+                  const isOpen = openBank === bank.id
+                  return (
+                    <div key={bank.id}>
+                      {/* Accordion header */}
+                      <button
+                        type="button"
+                        onClick={() => setOpenBank(isOpen ? null : bank.id)}
+                        className={cn(
+                          'w-full flex items-center justify-between px-4 py-3 text-left transition-colors',
+                          isOpen ? 'bg-[#fafafa]' : 'bg-white hover:bg-[#fafafa]'
+                        )}
+                      >
+                        <span className="text-xs font-semibold uppercase tracking-widest text-muted">
+                          {bank.label}
+                        </span>
+                        <svg
+                          className={cn('size-4 text-muted transition-transform duration-200', isOpen && 'rotate-180')}
+                          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+
+                      {/* Accordion body */}
+                      {isOpen && (
+                        <div className="border-t border-[#E5E5E5] bg-[#fafafa] p-4 space-y-4">
+                          {/* Note (e.g. Cash) */}
+                          {bank.note && (
+                            <p className="text-xs text-muted leading-relaxed">{bank.note}</p>
+                          )}
+
+                          {/* Detail sections */}
+                          {bank.sections?.map((section, si) => (
+                            <div key={si} className={cn(si > 0 && 'pt-4 border-t border-[#E5E5E5]')}>
+                              {section.title && (
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-[#111111] mb-2">
+                                  {section.title}
+                                </p>
+                              )}
+                              <div className="space-y-1.5">
+                                {section.rows.map((row, ri) => (
+                                  <div key={ri} className="flex items-start justify-between gap-3">
+                                    <span className="text-[11px] text-muted shrink-0 min-w-[90px] pt-px">
+                                      {row.label}
+                                    </span>
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <span className="text-xs font-medium text-[#111111] text-right break-all">
+                                        {row.value}
+                                      </span>
+                                      {row.copyable && (
+                                        <CopyButton text={row.copyValue ?? row.value} />
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+
+                          {/* PayPay QR */}
+                          {bank.hasQR && (
+                            <div className="pt-4 border-t border-[#E5E5E5] flex flex-col items-center gap-3">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={PAYPAY_QR_IMAGE}
+                                alt="PayPay QR"
+                                className="h-40 w-40 object-contain rounded-md"
+                                onError={(e) => {
+                                  ;(e.currentTarget as HTMLImageElement).style.display = 'none'
+                                  const next = e.currentTarget.nextElementSibling as HTMLElement
+                                  if (next) next.style.display = 'flex'
+                                }}
+                              />
+                              <div
+                                className="h-40 w-40 flex-col items-center justify-center rounded-md border-2 border-dashed border-[#E5E5E5] text-center"
+                                style={{ display: 'none' }}
+                              >
+                                <p className="text-xs text-muted">QR coming soon</p>
+                              </div>
+                              <a
+                                href={PAYPAY_LINK}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs font-medium text-[#111111] underline"
+                              >
+                                Open PayPay link
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    <p className="text-xs text-muted">{detail.name}</p>
+                  )
+                })}
+              </div>
+
+              {/* Screenshot upload — hidden for cash */}
+              {openBank !== 'cash' && (
+                <div className="space-y-2">
+                  <div>
+                    <p className="text-sm font-medium text-[#111111]">
+                      Upload Payment Proof <span className="text-error">*</span>
+                    </p>
+                    <p className="mt-0.5 text-xs text-muted">
+                      Screenshot of your bank or PayPay transfer — JPG, PNG, or WebP, max 5 MB.
+                    </p>
                   </div>
-                ))}
-              </div>
-
-              {/* PayPay QR */}
-              <div className="rounded-lg border border-[#E5E5E5] p-4 space-y-3">
-                <p className="text-xs font-medium text-muted uppercase tracking-wide">
-                  PayPay QR Code
-                </p>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={PAYPAY_QR_IMAGE}
-                  alt="PayPay QR Code"
-                  className="mx-auto h-48 w-48 object-contain rounded-md"
-                  onError={(e) => {
-                    // If QR image not yet uploaded, show a placeholder
-                    ;(e.currentTarget as HTMLImageElement).style.display = 'none'
-                    const placeholder = e.currentTarget.nextElementSibling as HTMLElement
-                    if (placeholder) placeholder.style.display = 'flex'
-                  }}
-                />
-                {/* Fallback placeholder (hidden by default) */}
-                <div
-                  className="hidden mx-auto h-48 w-48 flex-col items-center justify-center rounded-md border-2 border-dashed border-[#E5E5E5] text-center"
-                  style={{ display: 'none' }}
-                >
-                  <svg
-                    className="size-8 text-muted"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={1.5}
+                  <FieldError message={fieldErrors.payment_screenshot} />
+                  <label
+                    className={cn(
+                      'flex cursor-pointer flex-col items-center justify-center gap-2.5 rounded-lg border-2 border-dashed px-6 py-8 transition-colors',
+                      fileName
+                        ? 'border-[#111111] bg-[#fafafa]'
+                        : fieldErrors.payment_screenshot
+                        ? 'border-error/40 bg-error/5'
+                        : 'border-[#E5E5E5] hover:border-[#999999]'
+                    )}
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z"
+                    <input
+                      type="file"
+                      name="payment_screenshot"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="sr-only"
+                      onChange={(e) => setFileName(e.target.files?.[0]?.name ?? '')}
                     />
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M6.75 6.75h.75v.75h-.75v-.75zM6.75 16.5h.75v.75h-.75V16.5zM16.5 6.75h.75v.75h-.75v-.75zM13.5 13.5h.75v.75h-.75v-.75zM13.5 19.5h.75v.75h-.75v-.75zM19.5 13.5h.75v.75h-.75v-.75zM19.5 19.5h.75v.75h-.75v-.75zM16.5 16.5h.75v.75h-.75v-.75z"
-                    />
-                  </svg>
-                  <p className="mt-2 text-xs text-muted">QR image coming soon</p>
-                  <a
-                    href={PAYPAY_LINK}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-2 text-xs font-medium text-[#111111] underline"
-                  >
-                    Open PayPay link
-                  </a>
+                    {fileName ? (
+                      <>
+                        <svg className="size-5 text-[#111111]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                        </svg>
+                        <span className="max-w-full break-all text-center text-sm font-medium text-[#111111]">{fileName}</span>
+                        <span className="text-xs text-muted">Click to change</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg className="size-5 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                        </svg>
+                        <span className="text-sm font-medium text-[#111111]">Click to upload</span>
+                        <span className="text-xs text-muted">JPG · PNG · WebP · max 5 MB</span>
+                      </>
+                    )}
+                  </label>
                 </div>
-
-                <p className="text-center text-xs text-muted">
-                  Or pay via link:{' '}
-                  <a
-                    href={PAYPAY_LINK}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-medium text-[#111111] underline"
-                  >
-                    PayPay
-                  </a>
-                </p>
-              </div>
-
-              {/* Screenshot upload */}
-              <div className="space-y-2">
-                <div>
-                  <p className="text-sm font-medium text-[#111111]">
-                    Upload Payment Proof <span className="text-error">*</span>
-                  </p>
-                  <p className="mt-0.5 text-xs text-muted">
-                    Screenshot of your bank or PayPay transfer — JPG, PNG, or WebP, max 5 MB.
-                  </p>
-                </div>
-
-                <FieldError message={fieldErrors.payment_screenshot} />
-
-                <label
-                  className={cn(
-                    'flex cursor-pointer flex-col items-center justify-center gap-2.5 rounded-lg border-2 border-dashed px-6 py-8 transition-colors',
-                    fileName
-                      ? 'border-[#111111] bg-[#fafafa]'
-                      : fieldErrors.payment_screenshot
-                      ? 'border-error/40 bg-error/5'
-                      : 'border-[#E5E5E5] hover:border-[#999999]'
-                  )}
-                >
-                  <input
-                    type="file"
-                    name="payment_screenshot"
-                    accept="image/jpeg,image/png,image/webp"
-                    className="sr-only"
-                    onChange={(e) => setFileName(e.target.files?.[0]?.name ?? '')}
-                  />
-                  {fileName ? (
-                    <>
-                      <svg
-                        className="size-5 text-[#111111]"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth={1.5}
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M4.5 12.75l6 6 9-13.5"
-                        />
-                      </svg>
-                      <span className="max-w-full break-all text-center text-sm font-medium text-[#111111]">
-                        {fileName}
-                      </span>
-                      <span className="text-xs text-muted">Click to change</span>
-                    </>
-                  ) : (
-                    <>
-                      <svg
-                        className="size-5 text-muted"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth={1.5}
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
-                        />
-                      </svg>
-                      <span className="text-sm font-medium text-[#111111]">Click to upload</span>
-                      <span className="text-xs text-muted">JPG · PNG · WebP · max 5 MB</span>
-                    </>
-                  )}
-                </label>
-              </div>
+              )}
 
               {/* Hidden inputs */}
               <input type="hidden" name="event_id" value={event.id} />
