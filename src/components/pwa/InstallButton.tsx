@@ -108,7 +108,7 @@ export default function InstallButton({ variant = 'button' }: Props) {
               Tap the <ShareIcon className="inline size-4 align-text-bottom" />{' '}
               <strong>Share</strong> button at the bottom
             </Step>
-            <Step n={3}>Scroll down and tap <strong>"Add to Home Screen"</strong></Step>
+            <Step n={3}>Scroll down and tap <strong>&ldquo;Add to Home Screen&rdquo;</strong></Step>
             <Step n={4}>Tap <strong>Add</strong> — done!</Step>
           </div>
         )}
@@ -116,9 +116,9 @@ export default function InstallButton({ variant = 'button' }: Props) {
           <div className="mt-3 space-y-1.5 border-t border-[#E5E5E5] pt-3">
             <Step n={1}>
               Look for the <DesktopInstallIcon className="inline size-4 align-text-bottom" />{' '}
-              install icon in your browser's <strong>address bar</strong>
+              install icon in your browser&apos;s <strong>address bar</strong>
             </Step>
-            <Step n={2}>Click it and select <strong>"Install"</strong></Step>
+            <Step n={2}>Click it and select <strong>&ldquo;Install&rdquo;</strong></Step>
             <Step n={3}>The app will open as its own window — pin it to your taskbar</Step>
           </div>
         )}
@@ -170,12 +170,12 @@ export default function InstallButton({ variant = 'button' }: Props) {
             <>
               <p><span className="font-medium text-[#111111]">1.</span> Open in Safari</p>
               <p><span className="font-medium text-[#111111]">2.</span> Tap <ShareIcon className="inline size-3" /> Share</p>
-              <p><span className="font-medium text-[#111111]">3.</span> "Add to Home Screen"</p>
+              <p><span className="font-medium text-[#111111]">3.</span> &ldquo;Add to Home Screen&rdquo;</p>
             </>
           ) : (
             <>
-              <p><span className="font-medium text-[#111111]">1.</span> Click the install icon in your browser's address bar</p>
-              <p><span className="font-medium text-[#111111]">2.</span> Select "Install"</p>
+              <p><span className="font-medium text-[#111111]">1.</span> Click the install icon in your browser&apos;s address bar</p>
+              <p><span className="font-medium text-[#111111]">2.</span> Select &ldquo;Install&rdquo;</p>
             </>
           )}
         </div>
