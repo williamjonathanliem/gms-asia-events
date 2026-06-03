@@ -14,6 +14,7 @@ import { Select } from '@/components/ui/select-native'
 import { EVENT_CURRENCIES, DEFAULT_EVENT_CURRENCY } from '@/lib/currencies'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
+import { Tooltip } from '@/components/ui/tooltip'
 import PackageEditor from './PackageEditor'
 import type { EventWithPackages, Package, StaffRole } from '@/lib/types/database'
 
@@ -236,14 +237,16 @@ export default function EventDrawer({ event, onClose, onEventSaved, onEventDelet
           <h2 className="text-sm font-semibold text-[#111111]">
             {isNew ? 'New Event' : event.name}
           </h2>
-          <button
-            onClick={onClose}
-            className="rounded-full p-1.5 text-muted transition-colors hover:bg-[#f5f5f5] hover:text-[#111111]"
-          >
-            <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          <Tooltip content="Close" side="left">
+            <button
+              onClick={onClose}
+              className="rounded-full p-1.5 text-muted transition-colors hover:bg-[#f5f5f5] hover:text-[#111111]"
+            >
+              <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </Tooltip>
         </div>
 
         {/* Tabs (only for existing events) */}

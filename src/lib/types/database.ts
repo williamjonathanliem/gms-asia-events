@@ -69,6 +69,10 @@ export interface FormTheme {
   // Components
   buttonShape:   FormButtonShape
   inputStyle:    FormInputStyle
+  // Header banner
+  bannerMode?:   'none' | 'color' | 'image'
+  bannerColor?:  string   // hex — used when bannerMode === 'color'
+  bannerUrl?:    string   // URL  — used when bannerMode === 'image'
 }
 
 export const DEFAULT_FORM_THEME: FormTheme = {
@@ -85,6 +89,8 @@ export const DEFAULT_FORM_THEME: FormTheme = {
   cardStyle:     'transparent',
   buttonShape:   'rounded',
   inputStyle:    'outlined',
+  bannerMode:    'none',
+  bannerColor:   '#6366f1',
 }
 
 export function resolveTheme(saved: Partial<FormTheme> | null | undefined): FormTheme {

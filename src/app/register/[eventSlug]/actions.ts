@@ -275,7 +275,7 @@ export async function createStripeRegistration(
   } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     fieldErrors.email = 'Please enter a valid email address'
   }
-  if (!gms_church) fieldErrors.gms_church = 'Please select your church branch'
+  if (!gms_church) fieldErrors.gms_church = 'Please select your church origin'
   if (!package_id) fieldErrors.package_id = 'Please select a package'
   if (Object.keys(fieldErrors).length > 0) return { success: false, fieldErrors }
 

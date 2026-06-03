@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { formatDate } from '@/lib/utils'
 import type { EventWithPackages, StaffRole } from '@/lib/types/database'
 import EventDrawer from './EventDrawer'
+import { Tooltip } from '@/components/ui/tooltip'
 
 interface Props {
   initialEvents: EventWithPackages[]
@@ -24,10 +25,10 @@ function CopySlugButton({ slug }: { slug: string }) {
   }
 
   return (
+    <Tooltip content={copied ? 'Copied!' : 'Copy registration link'} side="left">
     <button
       type="button"
       onClick={handleCopy}
-      title="Copy registration link"
       className="rounded p-1 text-muted transition-colors hover:bg-[#f5f5f5] hover:text-[#111111]"
     >
       {copied ? (
@@ -40,6 +41,7 @@ function CopySlugButton({ slug }: { slug: string }) {
         </svg>
       )}
     </button>
+    </Tooltip>
   )
 }
 

@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select-native'
+import { Combobox } from '@/components/ui/combobox'
 import { getStripePromise } from '@/lib/stripe-client'
 
 // ── Bank / payment data ───────────────────────────────────────
@@ -61,22 +62,17 @@ const BANK_OPTIONS: BankOption[] = [
     ],
   },
   {
-    id: 'cash',
-    label: 'Cash',
-    note: 'Pay in cash directly to your Church or CG leader. You will receive a receipt as proof. No screenshot upload needed — our admin will verify manually.',
-  },
-  {
     id: 'paypay',
     label: 'PayPay',
     sections: [
       {
         rows: [
           { label: 'Number', value: '070-9194-7415', copyValue: '07091947415', copyable: true },
-          { label: 'Name',   value: 'VERICO CHRISTIAN JONATHAN' },
+          { label: 'Name',   value: 'GMS TOKYO' },
         ],
       },
     ],
-    hasQR: true,
+    hasQR: false,
   },
 ]
 
@@ -120,7 +116,7 @@ function ManualSubmitButton() {
     <button
       type="submit"
       disabled={pending}
-      className="w-full mt-2 flex items-center justify-center py-3 text-sm font-semibold transition-opacity hover:opacity-80 disabled:opacity-50"
+      className="w-full mt-2 flex items-center justify-center py-2.5 text-sm font-semibold transition-opacity hover:opacity-80 disabled:opacity-50"
       style={{
         backgroundColor: 'var(--form-accent)',
         color:           'var(--form-accent-text)',
@@ -189,7 +185,7 @@ function StripePaymentSection({ formRef, paymentIntentId, fieldErrors, onFieldEr
         type="button"
         disabled={!stripe || !elements || submitting}
         onClick={handlePay}
-        className="w-full mt-2 flex items-center justify-center py-3 text-sm font-semibold transition-opacity hover:opacity-80 disabled:opacity-50"
+        className="w-full mt-2 flex items-center justify-center py-2.5 text-sm font-semibold transition-opacity hover:opacity-80 disabled:opacity-50"
         style={{
           backgroundColor: 'var(--form-accent)',
           color:           'var(--form-accent-text)',
@@ -257,6 +253,7 @@ const stripePromise = getStripePromise()
 export default function RegistrationForm({ event, packages, globalChurches }: Props) {
   const churches = globalChurches && globalChurches.length > 0 ? globalChurches : GMS_CHURCHES
   const [state,          formAction]       = useFormState(submitRegistration, initial)
+  const [churchValue,    setChurchValue]   = useState<string>('')
   const [paymentMethod,  setPaymentMethod] = useState<PaymentMethod>('manual')
   const [openBank,       setOpenBank]      = useState<string | null>(null)
   const [selectedPkg,    setSelectedPkg]   = useState<string>(packages[0]?.id ?? '')
@@ -412,9 +409,23 @@ export default function RegistrationForm({ event, packages, globalChurches }: Pr
   // ── Render ────────────────────────────────────────────────
   const content = (
     <>
+      {/* Banner */}
+      {theme.bannerMode === 'color' && (
+        <div
+          className={cn('w-full h-36 sm:h-44 shrink-0', isCard && 'rounded-t-2xl')}
+          style={{ backgroundColor: theme.bannerColor ?? '#6366f1' }}
+        />
+      )}
+      {theme.bannerMode === 'image' && theme.bannerUrl && (
+        <div className={cn('w-full overflow-hidden shrink-0', isCard && 'rounded-t-2xl')}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={theme.bannerUrl} alt={event.name} className="h-44 w-full object-cover sm:h-52" />
+        </div>
+      )}
+
       {/* Page header */}
       <div className={`border-b ${c.headerBorder} ${c.headerBg}`}>
-        <div className={cn('px-6 py-10', isCard ? 'max-w-none' : 'mx-auto max-w-xl')}>
+        <div className={cn('px-6', isCard ? 'max-w-none' : 'mx-auto max-w-xl', theme.bannerMode !== 'none' ? 'py-6' : 'py-10')}>
           <p className={`text-xs font-medium uppercase tracking-widest ${c.subtext}`}>
             Event Registration
           </p>
@@ -491,17 +502,15 @@ export default function RegistrationForm({ event, packages, globalChurches }: Pr
                       return (
                         <div key={field.key}>
                           <Label htmlFor="gms_church" required={field.required} className={c.label}>{field.label}</Label>
-                          <select
-                            id="gms_church"
+                          <Combobox
+                            options={churches}
+                            value={churchValue}
+                            onChange={setChurchValue}
                             name="gms_church"
-                            defaultValue=""
+                            placeholder="Select your church origin"
+                            searchPlaceholder="Search churches..."
                             className={cn(inputCls, fe && 'border-error')}
-                          >
-                            <option value="" disabled>Select your church branch</option>
-                            {churches.map((ch) => (
-                              <option key={ch} value={ch}>{ch}</option>
-                            ))}
-                          </select>
+                          />
                           <FieldError message={fe} />
                         </div>
                       )
@@ -860,7 +869,7 @@ export default function RegistrationForm({ event, packages, globalChurches }: Pr
 
               <input type="hidden" name="event_id" value={event.id} />
               <ManualSubmitButton />
-              <div className="pb-8" />
+              <div className="pb-4" />
             </div>
           )}
 
@@ -949,7 +958,7 @@ export default function RegistrationForm({ event, packages, globalChurches }: Pr
             </div>
           )}
         </section>
-        <div className="pb-8" />
+        <div className="pb-4" />
       </form>
     </>
   )

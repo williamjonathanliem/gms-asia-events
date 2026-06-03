@@ -240,6 +240,43 @@ export async function deletePackage(id: string): Promise<{ error?: string }> {
   }
 }
 
+// ── Banner upload ─────────────────────────────────────────────
+
+export async function uploadEventBanner(
+  eventId: string,
+  formData: FormData
+): Promise<{ url?: string; error?: string }> {
+  try {
+    await requireAdminOrAbove()
+    const file = formData.get('banner') as File | null
+    if (!file || !file.size) return { error: 'No file provided.' }
+
+    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+    if (!allowed.includes(file.type)) return { error: 'Only JPG, PNG, WebP or GIF allowed.' }
+    if (file.size > 5 * 1024 * 1024) return { error: 'Max file size is 5 MB.' }
+
+    const ext  = file.type.split('/')[1].replace('jpeg', 'jpg')
+    const path = `${eventId}/banner.${ext}`
+
+    const supabase = createServiceClient()
+    const { error: uploadError } = await supabase.storage
+      .from('event-banners')
+      .upload(path, file, { upsert: true, contentType: file.type })
+
+    if (uploadError) return { error: uploadError.message }
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('event-banners')
+      .getPublicUrl(path)
+
+    const url = `${publicUrl}?t=${Date.now()}`
+    revalidatePath('/dashboard/events')
+    return { url }
+  } catch (e: any) {
+    return { error: e.message }
+  }
+}
+
 // ── Core Fields ───────────────────────────────────────────────
 
 export async function updateCoreFields(

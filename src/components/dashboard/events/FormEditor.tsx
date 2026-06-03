@@ -7,6 +7,7 @@ import CoreFieldsEditor from './CoreFieldsEditor'
 import CustomFieldsBuilder from './CustomFieldsBuilder'
 import { getBackgroundCSS } from '@/components/registration/FormBackground'
 import { resolveTheme, isColorDark, DEFAULT_FORM_THEME } from '@/lib/types/database'
+import { uploadEventBanner } from '@/app/dashboard/events/actions'
 import type {
   EventWithPackages, CoreField, CustomField, FormTheme,
   FormBgType, FormCardStyle, FormButtonShape, FormInputStyle, FormFontFamily,
@@ -206,8 +207,9 @@ function FormPreview({ theme, eventName }: { theme: FormTheme; eventName: string
 
 export default function FormEditor({ event, globalChurches }: { event: EventWithPackages; globalChurches: string[] }) {
   const router = useRouter()
-  const [tab,     setTab]     = useState<Tab>('fields')
-  const [saving,  setSaving]  = useState(false)
+  const [tab,        setTab]       = useState<Tab>('fields')
+  const [saving,     setSaving]    = useState(false)
+  const [uploading,  setUploading] = useState(false)
 
   const [coreFields,   setCoreFields]   = useState<CoreField[] | null>(event.core_fields ?? null)
   const [customFields, setCustomFields] = useState<CustomField[]>(event.custom_fields ?? [])
@@ -227,6 +229,20 @@ export default function FormEditor({ event, globalChurches }: { event: EventWith
     link.href = font.url
     document.head.appendChild(link)
   }, [theme.fontFamily])
+
+  async function handleBannerUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    const fd = new FormData()
+    fd.append('banner', file)
+    const res = await uploadEventBanner(event.id, fd)
+    setUploading(false)
+    if (res.error) toast.error(res.error)
+    else if (res.url) { set({ bannerUrl: res.url }); toast.success('Banner uploaded') }
+    // reset file input so the same file can be re-uploaded after changes
+    e.target.value = ''
+  }
 
   async function saveTheme() {
     setSaving(true)
@@ -311,6 +327,106 @@ export default function FormEditor({ event, globalChurches }: { event: EventWith
         <div className="space-y-0">
           {/* Live preview */}
           <FormPreview theme={theme} eventName={event.name} />
+
+          {/* ── Banner ── */}
+          <Section title="Header Banner">
+            {/* Mode selector */}
+            <div className="grid grid-cols-3 gap-2">
+              {(['none', 'color', 'image'] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => set({ bannerMode: mode })}
+                  className={cn(
+                    'rounded border-2 px-3 py-2.5 text-left transition-colors capitalize',
+                    (theme.bannerMode ?? 'none') === mode
+                      ? 'border-[#111111] bg-[#fafafa]'
+                      : 'border-[#E5E5E5] hover:border-[#999]'
+                  )}
+                >
+                  <p className="text-xs font-semibold text-[#111111] capitalize">{mode === 'none' ? 'None' : mode === 'color' ? 'Colour strip' : 'Image'}</p>
+                  <p className="text-[10px] text-muted mt-0.5">
+                    {mode === 'none' ? 'No banner' : mode === 'color' ? 'Solid colour fill' : 'Photo or graphic'}
+                  </p>
+                </button>
+              ))}
+            </div>
+
+            {/* ── Colour mode ── */}
+            {(theme.bannerMode ?? 'none') === 'color' && (
+              <div className="space-y-3">
+                {/* Preview strip */}
+                <div
+                  className="h-16 w-full rounded-lg border border-[#E5E5E5]"
+                  style={{ backgroundColor: theme.bannerColor ?? '#6366f1' }}
+                />
+                <ColorRow
+                  label="Banner colour"
+                  value={theme.bannerColor ?? '#6366f1'}
+                  onChange={(v) => set({ bannerColor: v })}
+                />
+              </div>
+            )}
+
+            {/* ── Image mode ── */}
+            {(theme.bannerMode ?? 'none') === 'image' && (
+              <div className="space-y-3">
+                {/* Preview / upload zone */}
+                {theme.bannerUrl ? (
+                  <div className="relative overflow-hidden rounded-lg border border-[#E5E5E5]">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={theme.bannerUrl} alt="Banner preview" className="h-32 w-full object-cover" />
+                    <div className="absolute inset-0 flex items-end justify-end gap-2 p-2">
+                      <label className="cursor-pointer rounded border border-white/60 bg-black/40 px-2.5 py-1 text-xs font-medium text-white backdrop-blur-sm hover:bg-black/60 transition-colors">
+                        {uploading ? 'Uploading...' : 'Replace'}
+                        <input type="file" accept="image/*" className="sr-only" disabled={uploading} onChange={handleBannerUpload} />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => set({ bannerUrl: undefined })}
+                        className="rounded border border-white/60 bg-black/40 px-2.5 py-1 text-xs font-medium text-white backdrop-blur-sm hover:bg-red-500/80 transition-colors"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <label className={cn(
+                    'flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-[#E5E5E5] py-8 transition-colors hover:border-[#111111]',
+                    uploading && 'pointer-events-none opacity-60'
+                  )}>
+                    {uploading ? (
+                      <svg className="size-5 animate-spin text-muted" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                      </svg>
+                    ) : (
+                      <svg className="size-5 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3 21h18M6.75 6.75h.008v.008H6.75V6.75z" />
+                      </svg>
+                    )}
+                    <span className="text-sm font-medium text-[#111111]">
+                      {uploading ? 'Uploading...' : 'Upload image'}
+                    </span>
+                    <span className="text-xs text-muted">JPG, PNG, WebP, GIF &middot; max 5 MB &middot; 1200&times;400px recommended</span>
+                    <input type="file" accept="image/*" className="sr-only" disabled={uploading} onChange={handleBannerUpload} />
+                  </label>
+                )}
+
+                {/* URL fallback */}
+                <div>
+                  <p className="mb-1.5 text-xs text-muted">Or paste an image URL</p>
+                  <input
+                    type="url"
+                    value={theme.bannerUrl ?? ''}
+                    onChange={(e) => set({ bannerUrl: e.target.value || undefined })}
+                    placeholder="https://example.com/banner.jpg"
+                    className="w-full rounded border border-[#E5E5E5] px-3 py-2 text-sm text-[#111111] placeholder:text-muted focus:border-[#111111] focus:outline-none"
+                  />
+                </div>
+              </div>
+            )}
+          </Section>
 
           {/* ── Background ── */}
           <Section title="Background">

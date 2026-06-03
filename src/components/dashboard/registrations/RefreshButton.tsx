@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
+import { Tooltip } from '@/components/ui/tooltip'
 
 export default function RefreshButton() {
   const router = useRouter()
@@ -17,11 +18,11 @@ export default function RefreshButton() {
   }
 
   return (
+    <Tooltip content="Refresh">
     <button
       type="button"
       onClick={handleRefresh}
       disabled={pending}
-      title="Refresh"
       className="flex items-center justify-center rounded-btn border border-[#E5E5E5] p-2 text-muted transition-colors hover:bg-[#f5f5f5] hover:text-[#111111] disabled:opacity-40"
     >
       <svg
@@ -38,5 +39,6 @@ export default function RefreshButton() {
         />
       </svg>
     </button>
+    </Tooltip>
   )
 }
