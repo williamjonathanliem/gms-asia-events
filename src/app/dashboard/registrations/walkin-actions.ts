@@ -79,7 +79,7 @@ export async function createWalkinRegistration(data: {
     .select(
       `id, qr_token, full_name, email, gms_church, nij, amount_paid, is_early_bird,
        packages(name, price, toolkit_items),
-       events(name, date, location, currency, early_bird_enabled, early_bird_auto_change, early_bird_end_date)`
+       events(name, date, end_date, location, currency, early_bird_enabled, early_bird_auto_change, early_bird_end_date)`
     )
     .single()
 
@@ -95,6 +95,7 @@ export async function createWalkinRegistration(data: {
       const evt = reg.events as unknown as {
         name: string
         date: string
+        end_date: string | null
         location: string
         currency: string
         early_bird_enabled: boolean

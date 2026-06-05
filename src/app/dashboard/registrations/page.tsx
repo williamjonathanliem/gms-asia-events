@@ -7,7 +7,7 @@ import ExportButton from '@/components/dashboard/registrations/ExportButton'
 import WalkinDrawerWrapper from '@/components/dashboard/registrations/WalkinDrawerWrapper'
 import RefreshButton from '@/components/dashboard/registrations/RefreshButton'
 import RegistrationsSkeleton from '@/components/dashboard/registrations/RegistrationsSkeleton'
-import { formatDate } from '@/lib/utils'
+import { formatDateRange } from '@/lib/utils'
 import { Suspense } from 'react'
 import type { Metadata } from 'next'
 import type { PaymentStatus, Package } from '@/lib/types/database'
@@ -39,33 +39,35 @@ export default async function RegistrationsPage({
   const scopedEventId = staff?.event_scope ?? null
 
   // ── Events list (event picker for staff without event_scope) ──
-  let eventsForPicker: { id: string; name: string; date: string }[] = []
+  let eventsForPicker: { id: string; name: string; date: string; end_date: string | null }[] = []
   if (!scopedEventId) {
     const { data: evs } = await supabase
       .from('events')
-      .select('id, name, date')
+      .select('id, name, date, end_date')
       .order('date', { ascending: false })
-    eventsForPicker = (evs ?? []) as { id: string; name: string; date: string }[]
+    eventsForPicker = (evs ?? []) as { id: string; name: string; date: string; end_date: string | null }[]
   }
 
   // ── Resolve active event (default filter for unscoped staff) ──
   let activeEventId: string | null = null
   let activeEventName = ''
   let activeEventDate = ''
+  let activeEventEndDate: string | null = null
 
   if (scopedEventId) {
     const { data } = await supabase
       .from('events')
-      .select('id, name, date')
+      .select('id, name, date, end_date')
       .eq('id', scopedEventId)
       .single()
     activeEventId = data?.id ?? null
     activeEventName = data?.name ?? ''
     activeEventDate = data?.date ?? ''
+    activeEventEndDate = data?.end_date ?? null
   } else {
     const { data: activeEvents } = await supabase
       .from('events')
-      .select('id, name, date')
+      .select('id, name, date, end_date')
       .eq('is_active', true)
       .order('date', { ascending: false })
       .limit(1)
@@ -73,6 +75,7 @@ export default async function RegistrationsPage({
     activeEventId = activeEvent?.id ?? null
     activeEventName = activeEvent?.name ?? ''
     activeEventDate = activeEvent?.date ?? ''
+    activeEventEndDate = activeEvent?.end_date ?? null
   }
 
   // ── Which event(s) registrations query uses ───────────────────
@@ -80,11 +83,13 @@ export default async function RegistrationsPage({
   let filterEventId: string | null = null
   let headerTitle = ''
   let headerDate = ''
+  let headerEndDate: string | null = null
 
   if (scopedEventId) {
     filterEventId = scopedEventId
     headerTitle = activeEventName
     headerDate = activeEventDate
+    headerEndDate = activeEventEndDate
   } else {
     const urlEvent = searchParams.event
     if (urlEvent === 'all') {
@@ -95,11 +100,13 @@ export default async function RegistrationsPage({
       const ev = eventsForPicker.find((e) => e.id === urlEvent)
       headerTitle = ev?.name ?? 'Event'
       headerDate = ev?.date ?? ''
+      headerEndDate = ev?.end_date ?? null
     } else {
       filterEventId = activeEventId
       if (filterEventId) {
         headerTitle = activeEventName
         headerDate = activeEventDate
+        headerEndDate = activeEventEndDate
       } else {
         queryAllEvents = true
         headerTitle = 'All events'
@@ -187,7 +194,7 @@ export default async function RegistrationsPage({
           <div>
             <p className="text-xs font-medium uppercase tracking-widest text-muted">
               {headerTitle}
-              {headerDate ? ` · ${formatDate(headerDate)}` : ''}
+              {headerDate ? ` · ${formatDateRange(headerDate, headerEndDate)}` : ''}
             </p>
             <h1 className="mt-1 text-xl font-semibold text-[#111111]">Registrations</h1>
           </div>

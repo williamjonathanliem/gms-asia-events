@@ -4,7 +4,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { signOut } from '@/app/auth/login/actions'
-import { cn, formatDate } from '@/lib/utils'
+import { cn, formatDateRange } from '@/lib/utils'
 import InstallButton from '@/components/pwa/InstallButton'
 import type { StaffUser } from '@/lib/types/database'
 
@@ -66,7 +66,7 @@ const iconSignOut = (
 
 interface Props {
   staff: StaffUser
-  activeEvents: { id: string; name: string; date: string }[]
+  activeEvents: { id: string; name: string; date: string; end_date?: string | null }[]
 }
 
 export default function Sidebar({ staff, activeEvents }: Props) {
@@ -125,7 +125,7 @@ export default function Sidebar({ staff, activeEvents }: Props) {
               <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-success" />
               <div className="min-w-0">
                 <p className="text-xs font-medium text-[#111111] leading-snug truncate">{ev.name}</p>
-                <p className="text-[10px] text-muted leading-snug">{formatDate(ev.date)}</p>
+                <p className="text-[10px] text-muted leading-snug">{formatDateRange(ev.date, ev.end_date)}</p>
               </div>
             </div>
           ))}

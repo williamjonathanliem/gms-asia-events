@@ -196,7 +196,7 @@ export default function BlastClient({ events, packages, churches, initialBlasts 
             <div className="flex items-center justify-between mb-3">
               <p className="text-xs font-semibold uppercase tracking-widest text-muted">Recipients</p>
               <span className="text-xs text-muted">
-                {previewing ? 'Counting¦' : recipientCount !== null ? (
+                {previewing ? 'Counting' : recipientCount !== null ? (
                   <span className={recipientCount === 0 ? 'text-error' : 'text-[#111111] font-medium'}>
                     {recipientCount} recipient{recipientCount !== 1 ? 's' : ''}
                   </span>
@@ -318,7 +318,7 @@ export default function BlastClient({ events, packages, churches, initialBlasts 
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
                 </svg>
-                Sending¦
+                Sending
               </span>
             ) : recipientCount !== null && recipientCount > 0
               ? `Send to ${recipientCount} recipient${recipientCount !== 1 ? 's' : ''}`
@@ -384,7 +384,7 @@ export default function BlastClient({ events, packages, churches, initialBlasts 
                       disabled={deleting}
                       className="flex-1 rounded-btn bg-error py-2 text-sm font-medium text-white hover:opacity-80 disabled:opacity-40"
                     >
-                      {deleting ? 'Deleting¦' : 'Yes, Delete'}
+                      {deleting ? 'Deleting' : 'Yes, Delete'}
                     </button>
                   </div>
                 </div>

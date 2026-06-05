@@ -262,7 +262,7 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
                     {editError && <p className="text-xs text-error">{editError}</p>}
                     <div className="flex gap-2">
                       <Button size="sm" onClick={saveEdit} disabled={editPending}>
-                        {editPending ? 'Saving¦' : 'Save'}
+                        {editPending ? 'Saving' : 'Save'}
                       </Button>
                       <Button variant="secondary" size="sm" onClick={() => setIsEditing(false)} disabled={editPending}>
                         Cancel
@@ -469,7 +469,7 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
                           rows={3}
                           value={rejectReason}
                           onChange={(e) => setRejectReason(e.target.value)}
-                          placeholder="Explain why the payment was rejected¦"
+                          placeholder="Explain why the payment was rejected"
                           className="w-full rounded-btn border border-[#E5E5E5] px-3 py-2 text-sm text-[#111111] placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-[#111111] focus:border-transparent resize-none"
                         />
                       </div>
@@ -480,7 +480,7 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
                           disabled={actionPending || !rejectReason.trim()}
                           className="bg-error hover:bg-error/90"
                         >
-                          {actionPending ? 'Rejecting¦' : 'Confirm Rejection'}
+                          {actionPending ? 'Rejecting' : 'Confirm Rejection'}
                         </Button>
                         <Button
                           variant="secondary"
@@ -503,7 +503,7 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
                           disabled={actionPending}
                           className="border border-success bg-white text-success hover:bg-success/5"
                         >
-                          {actionPending ? 'Updating¦' : 'Verify Payment'}
+                          {actionPending ? 'Updating' : 'Verify Payment'}
                         </Button>
                       )}
                       {currentStatus !== 'rejected' && (

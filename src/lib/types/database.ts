@@ -26,11 +26,11 @@ export interface CoreField {
 }
 
 export const DEFAULT_CORE_FIELDS: CoreField[] = [
-  { key: 'full_name',  label: 'Full Name',          required: true,  enabled: true, inputType: 'text' },
-  { key: 'email',      label: 'Email Address',       required: true,  enabled: true, inputType: 'email' },
-  { key: 'phone',      label: 'Phone Number',        required: false, enabled: true, inputType: 'tel' },
-  { key: 'gms_church', label: 'GMS Church Branch',   required: true,  enabled: true, inputType: 'select' },
-  { key: 'nij',        label: 'NIJ / Disciple ID',   required: false, enabled: true, inputType: 'text' },
+  { key: 'full_name',  label: 'Full Name',                        required: true,  enabled: true, inputType: 'text' },
+  { key: 'email',      label: 'Email Address',                     required: true,  enabled: true, inputType: 'email' },
+  { key: 'phone',      label: 'Phone Number (WhatsApp)',           required: true,  enabled: true, inputType: 'tel' },
+  { key: 'gms_church', label: 'GMS Church Origin / Church Origin', required: true,  enabled: true, inputType: 'select' },
+  { key: 'nij',        label: 'NIJ / Disciple ID',                required: false, enabled: true, inputType: 'text' },
 ]
 
 /** Merge saved overrides with defaults — always returns all 5 fields */
@@ -113,6 +113,7 @@ export interface Event {
   name: string
   slug: string
   date: string
+  end_date: string | null   // optional — if set, event spans multiple days
   location: string
   is_active: boolean
   form_title: string | null

@@ -1,9 +1,9 @@
-import { formatCurrency, formatDate } from '@/lib/utils'
+import { formatCurrency, formatDate, formatDateRange } from '@/lib/utils'
 import type { Event, Package, Registration } from '@/lib/types/database'
 
 type RegSummary = Pick<Registration, 'full_name' | 'email' | 'gms_church' | 'nij'>
 type PkgSummary = Pick<Package, 'name' | 'price' | 'toolkit_items'>
-type EventSummaryBase = Pick<Event, 'name' | 'date' | 'location'>
+type EventSummaryBase = Pick<Event, 'name' | 'date' | 'end_date' | 'location'>
 type EventSummary = EventSummaryBase &
   Pick<Event, 'early_bird_enabled' | 'early_bird_auto_change' | 'early_bird_end_date' | 'currency'>
 export type EmailPricing = {
@@ -160,7 +160,7 @@ export function confirmationTemplate(
     <p style="margin:0 0 6px;font-size:15px;font-weight:600;color:#111111;">Hi ${reg.full_name},</p>
     <p style="margin:0 0 24px;font-size:13px;color:#6B6B6B;line-height:1.6;">
       Your registration for <strong style="color:#111111;">${event.name}</strong> on
-      ${formatDate(event.date)} has been received. Our team will review your
+      ${formatDateRange(event.date, event.end_date)} has been received. Our team will review your
       payment and confirm your spot shortly.
     </p>
 
@@ -202,7 +202,7 @@ export function verifiedTemplate(
     <p style="margin:0 0 24px;font-size:13px;color:#6B6B6B;line-height:1.6;">
       Your payment for <strong style="color:#111111;">${event.name}</strong> has been
       verified. Your registration is confirmed — we look forward to seeing you on
-      ${formatDate(event.date)}.
+      ${formatDateRange(event.date, event.end_date)}.
     </p>
 
     ${pricing?.is_early_bird ? earlyBirdNotice(event, pricing) : ''}
@@ -228,7 +228,7 @@ export function verifiedTemplate(
 
     <p style="margin:0;font-size:12px;color:#6B6B6B;line-height:1.6;">
       Please arrive at <strong style="color:#111111;">${event.location}</strong> on
-      ${formatDate(event.date)}. The QR code covers both toolkit pickup and event entry.
+      ${formatDateRange(event.date, event.end_date)}. The QR code covers both toolkit pickup and event entry.
     </p>`
 
   return layout(event.name, body)

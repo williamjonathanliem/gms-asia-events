@@ -14,6 +14,7 @@ type EventSummary = Pick<
   Event,
   | 'name'
   | 'date'
+  | 'end_date'
   | 'location'
   | 'currency'
   | 'early_bird_enabled'
@@ -77,7 +78,7 @@ export async function sendVerifiedEmail(
 // ── Sent when admin rejects payment ──────────────────────────
 export async function sendRejectionEmail(
   reg: Pick<Registration, 'full_name' | 'email'>,
-  event: Pick<Event, 'name' | 'date' | 'location'>,
+  event: Pick<Event, 'name' | 'date' | 'end_date' | 'location'>,
   reason: string
 ) {
   await getTransporter().sendMail({

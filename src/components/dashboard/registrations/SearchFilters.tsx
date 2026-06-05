@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Select } from '@/components/ui/select-native'
 import { Combobox } from '@/components/ui/combobox'
 import { GMS_CHURCHES } from '@/lib/constants'
-import { formatDate } from '@/lib/utils'
+import { formatDateRange } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 
 const UUID_RE =
@@ -15,7 +15,7 @@ const UUID_RE =
 export interface SearchFiltersProps {
   /** Staff with event_scope cannot change event context */
   eventFilterLocked?: boolean
-  eventsForPicker?: { id: string; name: string; date: string }[]
+  eventsForPicker?: { id: string; name: string; date: string; end_date?: string | null }[]
   /** Default / "current active" event when `event` query param is absent */
   activeEventId?: string | null
 }
@@ -79,7 +79,7 @@ export default function SearchFilters({
       id:    ev.id,
       label: ev.id === activeEventId
         ? `${ev.name} (active)`
-        : `${ev.name} · ${formatDate(ev.date)}`,
+        : `${ev.name} · ${formatDateRange(ev.date, ev.end_date)}`,
     })),
   ]
 

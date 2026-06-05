@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getGlobalChurches, getRegistrationPopup } from '@/app/dashboard/settings/actions'
 import RegistrationForm from './RegistrationForm'
-import { formatDate } from '@/lib/utils'
+import { formatDateRange } from '@/lib/utils'
 import type { Metadata } from 'next'
 import type { EventWithPackages } from '@/lib/types/database'
 
@@ -54,7 +54,7 @@ export default async function RegisterPage({ params }: Props) {
             Registration for this event is no longer open.
             Contact the organiser if you believe this is an error.
           </p>
-          <p className="mt-4 text-xs text-muted">{formatDate(event.date)}</p>
+          <p className="mt-4 text-xs text-muted">{formatDateRange(event.date, event.end_date)}</p>
         </div>
       </div>
     )

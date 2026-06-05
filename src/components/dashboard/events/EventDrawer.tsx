@@ -116,7 +116,8 @@ export default function EventDrawer({ event, onClose, onEventSaved, onEventDelet
   const [name, setName] = useState(event?.name ?? '')
   const [slug, setSlug] = useState(event?.slug ?? '')
   const [slugTouched, setSlugTouched] = useState(false)
-  const [date, setDate] = useState(event?.date ?? '')
+  const [date,    setDate]    = useState(event?.date ?? '')
+  const [endDate, setEndDate] = useState(event?.end_date ?? '')
   const [location, setLocation] = useState(event?.location ?? '')
   const [formTitle, setFormTitle] = useState(event?.form_title ?? '')
   const [formSubtitle, setFormSubtitle] = useState(event?.form_subtitle ?? '')
@@ -154,6 +155,7 @@ export default function EventDrawer({ event, onClose, onEventSaved, onEventDelet
         name,
         slug,
         date,
+        end_date: endDate || null,
         location,
         form_title: formTitle || undefined,
         form_subtitle: formSubtitle || undefined,
@@ -168,6 +170,7 @@ export default function EventDrawer({ event, onClose, onEventSaved, onEventDelet
         name,
         slug,
         date,
+        end_date: endDate || null,
         location,
         form_title: formTitle || null,
         form_subtitle: formSubtitle || null,
@@ -185,6 +188,7 @@ export default function EventDrawer({ event, onClose, onEventSaved, onEventDelet
         name,
         slug,
         date,
+        end_date: endDate || null,
         location,
         form_title: formTitle || null,
         form_subtitle: formSubtitle || null,
@@ -295,7 +299,7 @@ export default function EventDrawer({ event, onClose, onEventSaved, onEventDelet
                   URL Slug&ensp;
                   <span className="font-normal text-muted">
                     (used in /register/
-                    <strong className="text-[#111111]">{slug || '¦'}</strong>
+                    <strong className="text-[#111111]">{slug || ''}</strong>
                     )
                   </span>
                 </Label>
@@ -315,7 +319,7 @@ export default function EventDrawer({ event, onClose, onEventSaved, onEventDelet
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="ev-date" required>Date</Label>
+                  <Label htmlFor="ev-date" required>Start Date</Label>
                   <Input
                     id="ev-date"
                     type="date"
@@ -324,14 +328,30 @@ export default function EventDrawer({ event, onClose, onEventSaved, onEventDelet
                   />
                 </div>
                 <div>
-                  <Label htmlFor="ev-location" required>Location</Label>
+                  <Label htmlFor="ev-end-date">
+                    End Date&ensp;<span className="font-normal text-muted">(optional)</span>
+                  </Label>
                   <Input
-                    id="ev-location"
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                    placeholder="Convention Centre"
+                    id="ev-end-date"
+                    type="date"
+                    value={endDate}
+                    min={date || undefined}
+                    onChange={(e) => setEndDate(e.target.value)}
                   />
+                  {endDate && endDate < date && (
+                    <p className="mt-1 text-xs text-error">End date must be after start date.</p>
+                  )}
                 </div>
+              </div>
+
+              <div>
+                <Label htmlFor="ev-location" required>Location</Label>
+                <Input
+                  id="ev-location"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  placeholder="Convention Centre"
+                />
               </div>
 
               <div className="border-t border-[#E5E5E5] pt-5">
@@ -375,7 +395,7 @@ export default function EventDrawer({ event, onClose, onEventSaved, onEventDelet
                       value={formSubtitle}
                       onChange={(e) => setFormSubtitle(e.target.value)}
                       rows={2}
-                      placeholder="Brief description shown below the heading¦"
+                      placeholder="Brief description shown below the heading"
                       className="w-full rounded-btn border border-[#E5E5E5] bg-white px-3 py-2 text-sm text-[#111111] placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-[#111111] focus:border-transparent resize-none"
                     />
                   </div>
@@ -598,8 +618,8 @@ export default function EventDrawer({ event, onClose, onEventSaved, onEventDelet
                           }`}
                         >
                           {dangerMode === 'delete'
-                            ? (deleting ? 'Deleting¦' : 'Delete Event')
-                            : (resetting ? 'Resetting¦' : 'Reset Event')}
+                            ? (deleting ? 'Deleting' : 'Delete Event')
+                            : (resetting ? 'Resetting' : 'Reset Event')}
                         </button>
                       </div>
                     </div>

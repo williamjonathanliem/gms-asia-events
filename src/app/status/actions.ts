@@ -11,6 +11,7 @@ export type StatusResult =
       full_name: string
       event_name: string
       event_date: string
+      event_end_date: string | null
       package_name: string | null
       amount_paid: number | null
       currency: string
@@ -29,7 +30,7 @@ export async function checkRegistrationStatus(email: string): Promise<StatusResu
     .select(
       `full_name, payment_status, payment_notes, qr_token, amount_paid,
        packages(name, price),
-       events(name, date, is_active, currency)`
+       events(name, date, end_date, is_active, currency)`
     )
     .eq('email', email.trim().toLowerCase())
     .order('created_at', { ascending: false })
@@ -41,6 +42,7 @@ export async function checkRegistrationStatus(email: string): Promise<StatusResu
   const evt  = data.events  as unknown as {
     name: string
     date: string
+    end_date: string | null
     is_active: boolean
     currency: string
   } | null
@@ -65,6 +67,7 @@ export async function checkRegistrationStatus(email: string): Promise<StatusResu
     full_name:      data.full_name,
     event_name:     evt?.name ?? '',
     event_date:     evt?.date ?? '',
+    event_end_date: evt?.end_date ?? null,
     package_name:   pkg?.name ?? null,
     amount_paid,
     currency,

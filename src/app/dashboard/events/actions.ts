@@ -23,6 +23,7 @@ export async function createEvent(data: {
   name: string
   slug?: string
   date: string
+  end_date?: string | null
   location: string
   form_title?: string
   form_subtitle?: string
@@ -42,6 +43,7 @@ export async function createEvent(data: {
         name: data.name.trim(),
         slug: (data.slug?.trim() || slugify(data.name)).toLowerCase(),
         date: data.date,
+        end_date: data.end_date ?? null,
         location: data.location.trim(),
         form_title: data.form_title?.trim() || null,
         form_subtitle: data.form_subtitle?.trim() || null,
@@ -70,6 +72,7 @@ export async function updateEvent(
     name: string
     slug: string
     date: string
+    end_date: string | null
     location: string
     form_title: string | null
     form_subtitle: string | null

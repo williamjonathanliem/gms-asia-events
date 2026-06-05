@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { checkRegistrationStatus, type StatusResult } from '@/app/status/actions'
 import { PackagePrice } from '@/components/registration/PackagePrice'
-import { formatDate } from '@/lib/utils'
+import { formatDateRange } from '@/lib/utils'
 
 export default function StatusForm() {
   const [email,   setEmail]   = useState('')
@@ -81,7 +81,7 @@ export default function StatusForm() {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted">Date</span>
-                  <span className="text-[#111111]">{result.event_date ? formatDate(result.event_date) : '—'}</span>
+                  <span className="text-[#111111]">{result.event_date ? formatDateRange(result.event_date, result.event_end_date) : '—'}</span>
                 </div>
                 {result.package_name && (
                   <div className="flex justify-between items-start gap-4 text-sm">

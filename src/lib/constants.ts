@@ -1,14 +1,40 @@
+// Ordered column-by-column: ASIA → JATENGDIY → INDONESIA → OTHER
 export const GMS_CHURCHES = [
-  'GMS Hong Kong',
-  'GMS Kaohsiung Satellite',
-  'GMS Kota Kinabalu Satellite',
-  'GMS Kuala Lumpur',
-  'GMS Kuching',
-  'GMS Osaka Satellite',
+  // ASIA
+  'GMS Tokyo',
+  'GMS Osaka',
+  'ROSC Singapore',
   'GMS Taipei',
-  'GMS Tokyo Satellite',
-  'GMS Surabaya',
-  'GMS Jakarta',
+  'GMS Hong Kong',
+  'GMS Kuching',
+  'GMS Kuala Lumpur',
+  'GMS Osaka Satellite',
+  'GMS Kota Kinabalu Satellite',
+  'GMS Kaohsiung Satellite',
+  'GMS Regional Asia - Other',
+  // JATENGDIY
+  'GMS Semarang',
+  'GMS Jogjakarta',
+  'GMS Solo',
+  'GMS Salatiga',
+  'GMS Bantul',
+  'GMS Magelang',
+  'GMS Purwokerto',
+  'GMS Kudus',
+  'GMS Regional Jateng & DIY - Other',
+  // INDONESIA
+  'GMS Regional Jakarta, Jawa Barat, Banten',
+  'GMS Regional Australia & New Zealand',
+  'GMS Regional Europe',
+  'GMS Regional USA & Canada',
+  'GMS Regional Sumatera',
+  'GMS Regional Jatim 1',
+  'GMS Regional Jatim 2',
+  'GMS Regional Sulawesi, Maluku, Papua, NTT, Timor Leste',
+  'GMS Regional Kalimantan',
+  'GMS Regional Bali',
+  // OTHER
+  'Other Church',
 ] as const
 
 export type GMSChurch = (typeof GMS_CHURCHES)[number]

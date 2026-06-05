@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import StripeProofUpload from './StripeProofUpload'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Registration Received' }
@@ -8,20 +9,24 @@ export default async function SuccessPage({
 }: {
   searchParams: { id?: string }
 }) {
-  let name: string | null = null
-  let email: string | null = null
+  let name:          string | null = null
+  let email:         string | null = null
+  let paymentMethod: string | null = null
 
   if (searchParams.id) {
     const supabase = createServiceClient()
     const { data } = await supabase
       .from('registrations')
-      .select('full_name, email')
+      .select('full_name, email, payment_method')
       .eq('id', searchParams.id)
       .single()
 
-    name = data?.full_name ?? null
-    email = data?.email ?? null
+    name          = data?.full_name     ?? null
+    email         = data?.email         ?? null
+    paymentMethod = data?.payment_method ?? null
   }
+
+  const isStripe = paymentMethod === 'stripe'
 
   return (
     <main className="flex min-h-screen items-center justify-center px-4 sm:px-6">
@@ -45,16 +50,22 @@ export default async function SuccessPage({
 
         {/* Heading */}
         <div className="space-y-2">
-          <h1 className="text-xl font-semibold text-[#111111]">Registration Received</h1>
+          <h1 className="text-xl font-semibold text-[#111111]">
+            {isStripe ? 'Payment Received!' : 'Registration Received'}
+          </h1>
           {name ? (
             <p className="text-sm text-muted">
               Thank you,{' '}
-              <span className="font-medium text-[#111111]">{name}</span>. We will
-              review your payment and confirm your registration shortly.
+              <span className="font-medium text-[#111111]">{name}</span>.{' '}
+              {isStripe
+                ? 'Your card payment is being confirmed automatically.'
+                : 'We will review your payment and confirm your registration shortly.'}
             </p>
           ) : (
             <p className="text-sm text-muted">
-              We will review your payment and confirm your registration shortly.
+              {isStripe
+                ? 'Your card payment is being confirmed automatically.'
+                : 'We will review your payment and confirm your registration shortly.'}
             </p>
           )}
         </div>
@@ -63,15 +74,31 @@ export default async function SuccessPage({
         <div className="rounded-lg border border-[#E5E5E5] px-5 py-4 text-left space-y-3">
           {email && (
             <p className="text-sm text-muted">
-              A confirmation email with your QR code has been sent to{' '}
-              <span className="font-medium text-[#111111]">{email}</span>.
+              {isStripe ? (
+                <>
+                  Your QR code will be sent automatically to{' '}
+                  <span className="font-medium text-[#111111]">{email}</span>{' '}
+                  once your payment is confirmed.
+                </>
+              ) : (
+                <>
+                  A confirmation email has been sent to{' '}
+                  <span className="font-medium text-[#111111]">{email}</span>.
+                </>
+              )}
             </p>
           )}
-          <p className="text-sm text-muted">
-            Your QR code will be activated once payment is verified by our team.
-            You will receive a second email when this is done.
-          </p>
+          {!isStripe && (
+            <p className="text-sm text-muted">
+              Your QR code will be emailed once our team verifies your payment.
+            </p>
+          )}
         </div>
+
+        {/* Stripe proof upload */}
+        {isStripe && searchParams.id && (
+          <StripeProofUpload registrationId={searchParams.id} />
+        )}
       </div>
     </main>
   )

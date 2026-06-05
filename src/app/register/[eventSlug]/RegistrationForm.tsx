@@ -7,7 +7,7 @@ import { submitRegistration, createStripeRegistration, type RegisterFormState } 
 import { type Event, type Package, type CustomField, resolveCoreFields, resolveTheme, isColorDark } from '@/lib/types/database'
 import FormBackground, { themeDark, getBackgroundCSS } from '@/components/registration/FormBackground'
 import { GMS_CHURCHES } from '@/lib/constants'
-import { formatJPY, formatDate } from '@/lib/utils'
+import { formatJPY, formatDateRange } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -494,10 +494,15 @@ export default function RegistrationForm({ event, packages, globalChurches, popu
           <p className={`text-xs font-medium uppercase tracking-widest ${c.subtext}`}>
             Event Registration
           </p>
-          <h1 className={`mt-2 text-2xl font-semibold ${c.heading}`}>{event.name}</h1>
+          <h1 className={`mt-2 text-2xl font-semibold ${c.heading}`}>
+            {event.form_title || event.name}
+          </h1>
           <p className={`mt-1 text-sm ${c.subtext}`}>
-            {formatDate(event.date)}&ensp;&middot;&ensp;{event.location}
+            {formatDateRange(event.date, event.end_date)}&ensp;&middot;&ensp;{event.location}
           </p>
+          {event.form_subtitle && (
+            <p className={`mt-2 text-sm leading-relaxed ${c.subtext}`}>{event.form_subtitle}</p>
+          )}
         </div>
       </div>
 
@@ -1003,7 +1008,7 @@ export default function RegistrationForm({ event, packages, globalChurches, popu
                       <div className={cn('flex justify-between px-4 py-3 border-t',
                         boxGlass ? 'border-white/15' : isDark ? 'border-white/10' : 'border-[#E5E5E5]')}>
                         <span className={`font-semibold ${c.heading}`}>Total charged</span>
-                        <span className={`font-semibold ${c.heading}`}>{formatJPY(feeBreakdown.net)} + 3.95%</span>
+                        <span className={`font-semibold ${c.heading}`}>{formatJPY(feeBreakdown.total)}</span>
                       </div>
                     </div>
                   )}

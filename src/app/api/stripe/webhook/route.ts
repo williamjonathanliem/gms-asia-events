@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
             .select(
               `full_name, email, gms_church, nij, qr_token, amount_paid, is_early_bird,
                packages(name, price, early_bird_price, toolkit_items),
-               events(name, date, location, currency, early_bird_enabled, early_bird_auto_change, early_bird_end_date)`
+               events(name, date, end_date, location, currency, early_bird_enabled, early_bird_auto_change, early_bird_end_date)`
             )
             .eq('id', registration.id)
             .single()
@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
               name: string; price: number; early_bird_price: number | null; toolkit_items: string[]
             }
             const evt = fullReg.events as unknown as {
-              name: string; date: string; location: string; currency: string
+              name: string; date: string; end_date: string | null; location: string; currency: string
               early_bird_enabled: boolean; early_bird_auto_change: boolean; early_bird_end_date: string | null
             }
             await sendVerifiedEmail(

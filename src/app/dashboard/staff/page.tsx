@@ -21,7 +21,7 @@ export default async function StaffPage() {
       .order('created_at', { ascending: true }),
     supabase
       .from('events')
-      .select('id, name, date')
+      .select('id, name, date, end_date')
       .order('date', { ascending: false }),
   ])
 
@@ -36,7 +36,7 @@ export default async function StaffPage() {
       <div className="px-4 py-5 sm:px-8 sm:py-6">
         <StaffClient
           initialStaff={(staffList ?? []) as StaffUser[]}
-          events={(events ?? []) as Pick<Event, 'id' | 'name' | 'date'>[]}
+          events={(events ?? []) as Pick<Event, 'id' | 'name' | 'date' | 'end_date'>[]}
           currentUserEmail={staff.email}
         />
       </div>

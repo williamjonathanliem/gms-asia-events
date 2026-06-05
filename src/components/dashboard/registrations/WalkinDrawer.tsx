@@ -258,7 +258,7 @@ export default function WalkinDrawer({ eventId, packages, eventPricing, onClose 
             disabled={saving}
             className="w-full rounded-btn bg-[#111111] py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-80 disabled:opacity-40"
           >
-            {saving ? 'Adding¦' : 'Add Registrant'}
+            {saving ? 'Adding' : 'Add Registrant'}
           </button>
         </div>
       </div>

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { formatDate } from '@/lib/utils'
+import { formatDateRange } from '@/lib/utils'
 import type { EventWithPackages, StaffRole } from '@/lib/types/database'
 import EventDrawer from './EventDrawer'
 import { Tooltip } from '@/components/ui/tooltip'
@@ -114,7 +114,7 @@ export default function EventsClient({ initialEvents, globalChurches, staffRole 
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold text-[#111111] truncate">{event.name}</p>
                 <p className="mt-0.5 text-xs text-muted truncate">
-                  {formatDate(event.date)}&ensp;·&ensp;{event.location}
+                  {formatDateRange(event.date, event.end_date)}&ensp;·&ensp;{event.location}
                 </p>
               </div>
 

@@ -126,7 +126,7 @@ export async function verifyPayment(
     .select(
       `full_name, email, gms_church, nij, qr_token, amount_paid, is_early_bird,
        packages(name, price, toolkit_items),
-       events(name, date, location, currency, early_bird_enabled, early_bird_auto_change, early_bird_end_date)`
+       events(name, date, end_date, location, currency, early_bird_enabled, early_bird_auto_change, early_bird_end_date)`
     )
     .single()
 
@@ -137,6 +137,7 @@ export async function verifyPayment(
     const evt = reg.events as unknown as {
       name: string
       date: string
+      end_date: string | null
       location: string
       currency: string
       early_bird_enabled: boolean
@@ -194,7 +195,7 @@ export async function rejectPayment(
   try {
     await sendRejectionEmail(
       { full_name: reg.full_name, email: reg.email },
-      reg.events as unknown as { name: string; date: string; location: string },
+      reg.events as unknown as { name: string; date: string; end_date: string | null; location: string },
       reason.trim()
     )
   } catch (e) {

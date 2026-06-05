@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { inviteStaff, updateStaffMember, removeStaff } from '@/app/dashboard/staff/actions'
-import { formatDate } from '@/lib/utils'
+import { formatDateRange } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -37,7 +37,7 @@ function ScopeSelect({
 }: {
   value: string
   onChange: (v: string) => void
-  events: Pick<Event, 'id' | 'name' | 'date'>[]
+  events: Pick<Event, 'id' | 'name' | 'date' | 'end_date'>[]
 }) {
   return (
     <select
@@ -48,7 +48,7 @@ function ScopeSelect({
       <option value="">All Events</option>
       {events.map((ev) => (
         <option key={ev.id} value={ev.id}>
-          {ev.name} — {formatDate(ev.date)}
+          {ev.name} — {formatDateRange(ev.date, ev.end_date)}
         </option>
       ))}
     </select>
@@ -64,7 +64,7 @@ function StaffDrawer({
   onRemoved,
 }: {
   member: StaffUser | null // null = invite new
-  events: Pick<Event, 'id' | 'name' | 'date'>[]
+  events: Pick<Event, 'id' | 'name' | 'date' | 'end_date'>[]
   onClose: () => void
   onSaved: (member: StaffUser) => void
   onRemoved: (id: string) => void
@@ -265,7 +265,7 @@ function StaffDrawer({
 // ── Main client ───────────────────────────────────────────────
 interface Props {
   initialStaff: StaffUser[]
-  events: Pick<Event, 'id' | 'name' | 'date'>[]
+  events: Pick<Event, 'id' | 'name' | 'date' | 'end_date'>[]
   currentUserEmail: string
 }
 
@@ -353,7 +353,7 @@ export default function StaffClient({ initialStaff, events, currentUserEmail }: 
                     )}
                   </td>
                   <td className="px-4 py-3 text-xs text-muted hidden md:table-cell whitespace-nowrap">
-                    {formatDate(member.created_at)}
+                    {formatDateRange(member.created_at, null)}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <button

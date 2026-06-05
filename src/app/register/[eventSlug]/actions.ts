@@ -206,7 +206,7 @@ export async function submitRegistration(
     .select(
       `full_name, email, gms_church, nij, qr_token, amount_paid, is_early_bird,
        packages(name, price, early_bird_price, toolkit_items),
-       events(name, date, location, currency, early_bird_enabled, early_bird_auto_change, early_bird_end_date)`
+       events(name, date, end_date, location, currency, early_bird_enabled, early_bird_auto_change, early_bird_end_date)`
     )
     .eq('id', registration.id)
     .single()
@@ -222,6 +222,7 @@ export async function submitRegistration(
       const evt = fullReg.events as unknown as {
         name: string
         date: string
+        end_date: string | null
         location: string
         currency: string
         early_bird_enabled: boolean
@@ -293,9 +294,35 @@ export async function createStripeRegistration(
 
   const { data: eventData } = await supabase
     .from('events')
-    .select('early_bird_enabled, early_bird_auto_change, early_bird_end_date')
+    .select('early_bird_enabled, early_bird_auto_change, early_bird_end_date, registration_open, core_fields, custom_fields')
     .eq('id', event_id)
     .single()
+
+  if (!eventData?.registration_open)
+    return { success: false, error: 'Registration for this event is closed.' }
+
+  // Phone validation — reads required/label from per-event core_fields config
+  const coreFields = resolveCoreFields((eventData as any)?.core_fields)
+  const cf = Object.fromEntries(coreFields.map((f) => [f.key, f]))
+  if (cf.phone?.enabled && cf.phone?.required && !phone)
+    return { success: false, fieldErrors: { phone: `${cf.phone.label} is required` } }
+
+  // Custom field collection + validation
+  const customFieldDefs: CustomField[] = (eventData?.custom_fields ?? []) as CustomField[]
+  const custom_answers: Record<string, string | boolean> = {}
+  const customFieldErrors: Record<string, string> = {}
+  for (const field of customFieldDefs) {
+    const key = `custom_${field.id}`
+    if (field.type === 'checkbox') {
+      custom_answers[field.id] = formData.get(key) === 'on'
+    } else {
+      const value = ((formData.get(key) as string) ?? '').trim()
+      custom_answers[field.id] = value
+      if (field.required && !value) customFieldErrors[key] = `${field.label} is required`
+    }
+  }
+  if (Object.keys(customFieldErrors).length > 0)
+    return { success: false, fieldErrors: customFieldErrors }
 
   let amount_paid: number | null = null
   let is_early_bird = false
@@ -305,12 +332,12 @@ export async function createStripeRegistration(
       .from('packages')
       .select('price, early_bird_price')
       .eq('id', package_id)
+      .eq('event_id', event_id)
       .single()
-    if (pkg) {
-      const pricing = resolveRegistrationPricing(pkg, eventData)
-      amount_paid = pricing.amount_paid
-      is_early_bird = pricing.is_early_bird
-    }
+    if (!pkg) return { success: false, error: 'Invalid package selected.' }
+    const pricing = resolveRegistrationPricing(pkg, eventData)
+    amount_paid = pricing.amount_paid
+    is_early_bird = pricing.is_early_bird
   }
 
   const { data: registration, error: insertError } = await supabase
@@ -327,7 +354,7 @@ export async function createStripeRegistration(
       payment_status: 'pending',
       stripe_payment_intent_id,
       payment_notes: card_remark,
-      custom_answers: {},
+      custom_answers,
       amount_paid,
       is_early_bird,
     })
