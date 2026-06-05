@@ -24,28 +24,28 @@ type BankSection = { title?: string; rows: BankRow[] }
 type BankOption  = { id: string; label: string; sections?: BankSection[]; note?: string; hasQR?: boolean }
 
 const BANK_OPTIONS: BankOption[] = [
-  {
-    id: 'jppost',
-    label: 'JP Post Bank',
-    sections: [
-      {
-        title: 'JP Post Transfer',
-        rows: [
-          { label: 'Account Name', value: 'Andrew Getty Tantomo' },
-          { label: 'Code No.',     value: '10950',    copyable: true },
-          { label: 'Account No.', value: '17568871', copyable: true },
-        ],
-      },
-      {
-        title: 'Other Bank Transfer',
-        rows: [
-          { label: 'Account Name', value: 'Andrew Getty Tantomo' },
-          { label: 'Branch Code',  value: '098',     copyable: true },
-          { label: 'Account No.', value: '1756887', copyable: true },
-        ],
-      },
-    ],
-  },
+  // {
+  //   id: 'jppost',
+  //   label: 'JP Post Bank',
+  //   sections: [
+  //     {
+  //       title: 'JP Post Transfer',
+  //       rows: [
+  //         { label: 'Account Name', value: 'Andrew Getty Tantomo' },
+  //         { label: 'Code No.',     value: '10950',    copyable: true },
+  //         { label: 'Account No.', value: '17568871', copyable: true },
+  //       ],
+  //     },
+  //     {
+  //       title: 'Other Bank Transfer',
+  //       rows: [
+  //         { label: 'Account Name', value: 'Andrew Getty Tantomo' },
+  //         { label: 'Branch Code',  value: '098',     copyable: true },
+  //         { label: 'Account No.', value: '1756887', copyable: true },
+  //       ],
+  //     },
+  //   ],
+  // },
   {
     id: 'rakuten',
     label: 'Rakuten Bank',
@@ -137,20 +137,22 @@ function ManualSubmitButton() {
 
 // ── Stripe payment section ────────────────────────────────────
 interface StripeSectionProps {
-  formRef:        React.RefObject<HTMLFormElement>
+  formRef:         React.RefObject<HTMLFormElement>
   paymentIntentId: string
-  fieldErrors:    Partial<Record<string, string>>
-  onFieldErrors:  (errors: Partial<Record<string, string>>) => void
-  onError:        (msg: string) => void
+  fieldErrors:     Partial<Record<string, string>>
+  onFieldErrors:   (errors: Partial<Record<string, string>>) => void
+  onError:         (msg: string) => void
+  agreedToTerms:   boolean
 }
 
-function StripePaymentSection({ formRef, paymentIntentId, fieldErrors, onFieldErrors, onError }: StripeSectionProps) {
+function StripePaymentSection({ formRef, paymentIntentId, fieldErrors, onFieldErrors, onError, agreedToTerms }: StripeSectionProps) {
   const stripe   = useStripe()
   const elements = useElements()
   const [submitting, setSubmitting] = useState(false)
 
   const handlePay = async () => {
     if (!stripe || !elements || !formRef.current) return
+    if (!agreedToTerms) { onError('Please agree to the Registration Terms & Conditions to proceed.'); return }
     setSubmitting(true)
 
     const formData = new FormData(formRef.current)
@@ -238,11 +240,69 @@ function CopyButton({ text }: { text: string }) {
   )
 }
 
+// ── Terms modal ───────────────────────────────────────────────
+function TermsModal({ onAccept, content }: { onAccept: () => void; content: string }) {
+  return (
+    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div className="relative w-full max-w-md max-h-[85vh] flex flex-col bg-white rounded-2xl shadow-2xl overflow-hidden">
+        {/* Header */}
+        <div className="shrink-0 flex flex-col items-center pt-8 pb-5 px-6 border-b border-[#E5E5E5]">
+          <div className="flex items-center justify-center size-12 rounded-full border-2 border-[#111111] mb-4">
+            <svg className="size-6 text-[#111111]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h2 className="text-lg font-semibold text-[#111111]">Information</h2>
+          <p className="mt-1 text-xs text-muted text-center">
+            Please read carefully before proceeding with your registration.
+          </p>
+        </div>
+
+        {/* Scrollable content — plain text, blank lines = paragraph breaks */}
+        <div className="flex-1 overflow-y-auto px-6 py-5">
+          <div className="space-y-4 text-sm text-[#111111]">
+            {content.split(/\n\n+/).map((block, i) => {
+              const lines = block.trim().split('\n')
+              const isHeading = lines.length > 1 && !lines[0].startsWith('•') && !lines[0].startsWith('-')
+              if (isHeading) {
+                return (
+                  <div key={i}>
+                    <p className="font-semibold mb-1">{lines[0]}</p>
+                    {lines.slice(1).map((line, j) => (
+                      <p key={j} className="text-muted leading-relaxed">{line}</p>
+                    ))}
+                  </div>
+                )
+              }
+              return (
+                <p key={i} className="text-muted leading-relaxed whitespace-pre-line">{block.trim()}</p>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="shrink-0 px-6 py-4 border-t border-[#E5E5E5]">
+          <button
+            type="button"
+            onClick={onAccept}
+            className="w-full rounded-lg bg-[#111111] py-2.5 text-sm font-semibold text-white hover:bg-[#2a2a2a] transition-colors"
+          >
+            OK, I Understand
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Main form ─────────────────────────────────────────────────
 interface Props {
-  event:          Event
-  packages:       Package[]
+  event:           Event
+  packages:        Package[]
   globalChurches?: string[]
+  popupEnabled?:   boolean
+  popupContent?:   string
 }
 
 type PaymentMethod = 'manual' | 'card'
@@ -250,9 +310,11 @@ type PaymentMethod = 'manual' | 'card'
 const initial: RegisterFormState = {}
 const stripePromise = getStripePromise()
 
-export default function RegistrationForm({ event, packages, globalChurches }: Props) {
+export default function RegistrationForm({ event, packages, globalChurches, popupEnabled = false, popupContent = '' }: Props) {
   const churches = globalChurches && globalChurches.length > 0 ? globalChurches : GMS_CHURCHES
   const [state,          formAction]       = useFormState(submitRegistration, initial)
+  const [showTerms,      setShowTerms]     = useState(popupEnabled)
+  const [agreedToTerms,  setAgreedToTerms] = useState(false)
   const [churchValue,    setChurchValue]   = useState<string>('')
   const [paymentMethod,  setPaymentMethod] = useState<PaymentMethod>('manual')
   const [openBank,       setOpenBank]      = useState<string | null>(null)
@@ -409,6 +471,9 @@ export default function RegistrationForm({ event, packages, globalChurches }: Pr
   // ── Render ────────────────────────────────────────────────
   const content = (
     <>
+      {/* Terms modal — shown on first load when popup is enabled */}
+      {showTerms && popupEnabled && <TermsModal onAccept={() => setShowTerms(false)} content={popupContent} />}
+
       {/* Banner */}
       {theme.bannerMode === 'color' && (
         <div
@@ -425,7 +490,7 @@ export default function RegistrationForm({ event, packages, globalChurches }: Pr
 
       {/* Page header */}
       <div className={`border-b ${c.headerBorder} ${c.headerBg}`}>
-        <div className={cn('px-6', isCard ? 'max-w-none' : 'mx-auto max-w-xl', theme.bannerMode !== 'none' ? 'py-6' : 'py-10')}>
+        <div className={cn('px-6', isCard ? 'max-w-none' : 'mx-auto max-w-xl', theme.bannerMode !== 'none' ? 'py-5' : 'py-7')}>
           <p className={`text-xs font-medium uppercase tracking-widest ${c.subtext}`}>
             Event Registration
           </p>
@@ -440,7 +505,7 @@ export default function RegistrationForm({ event, packages, globalChurches }: Pr
         ref={formRef}
         action={formAction}
         onSubmit={(e) => { if (paymentMethod === 'card') e.preventDefault() }}
-        className={cn('space-y-10 px-6', isCard ? 'py-6' : 'mx-auto max-w-xl')}
+        className={cn('space-y-6 px-6', isCard ? 'py-5' : 'mx-auto max-w-xl py-2')}
       >
         {/* Global error */}
         {globalError && (
@@ -686,6 +751,34 @@ export default function RegistrationForm({ event, packages, globalChurches }: Pr
           </div>
         </section>
 
+        {/* ── Agreement — only shown when popup is enabled ── */}
+        {popupEnabled && <div className={cn(
+          'flex items-start gap-3 rounded-lg border px-4 py-3',
+          boxGlass ? 'bg-white/15 backdrop-blur-md border-white/20' : isDark ? 'bg-white/8 border-white/10' : 'bg-[#fafafa] border-[#E5E5E5]'
+        )}>
+          <input
+            id="agreed_to_terms"
+            type="checkbox"
+            required
+            checked={agreedToTerms}
+            onChange={(e) => setAgreedToTerms(e.target.checked)}
+            className="mt-0.5 size-4 shrink-0 rounded"
+            style={{ accentColor: theme.accentColor }}
+          />
+          <label htmlFor="agreed_to_terms" className={`text-sm leading-snug ${c.label}`}>
+            I have read and agree to the{' '}
+            <button
+              type="button"
+              onClick={() => setShowTerms(true)}
+              className="underline underline-offset-2 hover:opacity-70 transition-opacity font-medium"
+              style={{ color: theme.accentColor }}
+            >
+              Registration Terms &amp; Conditions
+            </button>
+            .
+          </label>
+        </div>}
+
         {/* ── Payment method ── */}
         <section className="space-y-4">
           <h2 className={`text-xs font-semibold uppercase tracking-widest ${c.sectionHead}`}>
@@ -707,10 +800,10 @@ export default function RegistrationForm({ event, packages, globalChurches }: Pr
                   style={active ? { borderColor: theme.accentColor } : undefined}
                 >
                   <div className={`text-sm font-semibold ${c.heading}`}>
-                    {m === 'manual' ? 'Manual Payment' : 'Pay by Card'}
+                    {m === 'manual' ? 'Bank Transfer – Japan Local Bank' : 'Pay by Card'}
                   </div>
                   <div className={`mt-0.5 text-xs ${c.subtext}`}>
-                    {m === 'manual' ? 'Japan local · Bank / PayPay' : 'International · All currencies'}
+                    {m === 'manual' ? 'Recommended for Japan Registrants - Japanese Yen' : 'For International Registrants - All Currencies'}
                   </div>
                 </button>
               )
@@ -940,6 +1033,7 @@ export default function RegistrationForm({ event, packages, globalChurches }: Pr
                       formRef={formRef}
                       paymentIntentId={paymentIntentId}
                       fieldErrors={fieldErrors}
+                      agreedToTerms={agreedToTerms}
                       onFieldErrors={(errs) => {
                         setFieldErrors(errs)
                         formRef.current?.scrollIntoView({ behavior: 'smooth' })

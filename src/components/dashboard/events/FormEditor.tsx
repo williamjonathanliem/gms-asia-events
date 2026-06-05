@@ -258,19 +258,7 @@ export default function FormEditor({ event, globalChurches }: { event: EventWith
   ]
 
   return (
-    <div className="max-w-2xl space-y-6">
-      {/* Live form preview link */}
-      <a
-        href={`/register/${event.slug}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex items-center gap-2 rounded border border-[#E5E5E5] px-3 py-2 text-sm text-muted hover:text-[#111111] hover:border-[#111111] transition-colors"
-      >
-        <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-        </svg>
-        Preview form
-      </a>
+    <div className={tab === 'theme' ? 'max-w-5xl' : 'max-w-2xl'}>
 
       {/* Tab bar */}
       <div className="flex gap-1 border-b border-[#E5E5E5]">
@@ -292,7 +280,7 @@ export default function FormEditor({ event, globalChurches }: { event: EventWith
 
       {/* ── Form Fields tab ── */}
       {tab === 'fields' && (
-        <div className="space-y-8">
+        <div className="space-y-8 mt-6">
           <section>
             <h2 className="text-xs font-semibold uppercase tracking-widest text-muted mb-4">Core Fields</h2>
             <p className="text-sm text-muted mb-4">
@@ -324,9 +312,10 @@ export default function FormEditor({ event, globalChurches }: { event: EventWith
 
       {/* ── Theme tab ── */}
       {tab === 'theme' && (
-        <div className="space-y-0">
-          {/* Live preview */}
-          <FormPreview theme={theme} eventName={event.name} />
+        <div className="flex gap-8 items-start mt-6">
+
+          {/* ── Left: controls ── */}
+          <div className="flex-1 min-w-0 space-y-0">
 
           {/* ── Banner ── */}
           <Section title="Header Banner">
@@ -702,6 +691,28 @@ export default function FormEditor({ event, globalChurches }: { event: EventWith
               Reset to default
             </button>
           </div>
+
+          </div>
+
+          {/* ── Right: sticky preview ── */}
+          <div className="hidden lg:flex w-72 xl:w-80 shrink-0 self-stretch">
+            <div className="sticky top-[3.5rem] h-fit w-full space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-widest text-muted">Preview</p>
+              <FormPreview theme={theme} eventName={event.name} />
+              <a
+                href={`/register/${event.slug}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex w-full items-center justify-center gap-2 rounded border border-[#E5E5E5] px-3 py-2 text-sm text-muted hover:text-[#111111] hover:border-[#111111] transition-colors"
+              >
+                <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                </svg>
+                Open live form
+              </a>
+            </div>
+          </div>
+
         </div>
       )}
     </div>
