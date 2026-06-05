@@ -18,12 +18,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(`${origin}${destination}`)
     }
 
-    // Fallback: server-generated invite codes don't have a client-side verifier.
-    // Use the service client which can exchange without one.
+    // Fallback: server-generated invite codes don't have a client-side PKCE verifier.
+    // Exchange via service client, then hydrate the SSR client so cookies are set.
     const admin = createServiceClient()
-    const { error: adminError } = await admin.auth.exchangeCodeForSession(code)
+    const { data: adminData, error: adminError } = await admin.auth.exchangeCodeForSession(code)
 
-    if (!adminError) {
+    if (!adminError && adminData.session) {
+      // Write the session into SSR cookies so the redirect lands with a valid session
+      await supabase.auth.setSession({
+        access_token:  adminData.session.access_token,
+        refresh_token: adminData.session.refresh_token,
+      })
       const destination = type === 'invite' ? '/auth/set-password' : next
       return NextResponse.redirect(`${origin}${destination}`)
     }

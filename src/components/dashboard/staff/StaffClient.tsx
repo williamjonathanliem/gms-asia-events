@@ -108,6 +108,10 @@ function StaffDrawer({
     setRemoving(false)
     if (res.error) { setError(res.error); return }
     onRemoved(member.id)
+    if (res.authWarning) {
+      setError('Staff access revoked. Note: their login credentials could not be deleted from Supabase Auth — contact your Supabase admin to remove them manually.')
+      return // keep drawer open so the warning is visible
+    }
     onClose()
   }
 

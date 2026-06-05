@@ -160,7 +160,7 @@ export async function updateStaffMember(
   }
 }
 
-export async function removeStaff(id: string): Promise<{ error?: string }> {
+export async function removeStaff(id: string): Promise<{ error?: string; authWarning?: boolean }> {
   try {
     await requireSuperAdmin()
     const supabase = createServiceClient()
@@ -182,11 +182,22 @@ export async function removeStaff(id: string): Promise<{ error?: string }> {
       }
     }
 
-    // Delete auth user (cascades to staff_users via FK)
-    const { error } = await supabase.auth.admin.deleteUser(id)
-    if (error) return { error: error.message }
+    // Step 1: Remove dashboard access — explicit delete so it always works
+    // regardless of whether the FK cascade is configured in Supabase.
+    const { error: staffError } = await supabase
+      .from('staff_users')
+      .delete()
+      .eq('id', id)
+
+    if (staffError) return { error: staffError.message }
+
+    // Step 2: Delete auth user to revoke login credentials.
+    // Non-fatal: if this fails the person still cannot access the dashboard
+    // (staff_users row is gone) but their email/password remains in Supabase Auth.
+    const { error: authError } = await supabase.auth.admin.deleteUser(id)
+
     revalidatePath('/dashboard/staff')
-    return {}
+    return authError ? { authWarning: true } : {}
   } catch (e: any) {
     return { error: e.message }
   }

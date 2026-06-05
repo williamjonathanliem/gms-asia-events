@@ -56,7 +56,14 @@ export default function SetPasswordPage() {
       return
     }
 
-    router.push('/dashboard')
+    // Redirect scanners directly to the scanner landing page
+    const { data: staffData } = await supabase
+      .from('staff_users')
+      .select('role')
+      .eq('id', data.user.id)
+      .single()
+
+    router.push(staffData?.role === 'scanner' ? '/dashboard/scanner' : '/dashboard')
   }
 
   return (
