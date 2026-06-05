@@ -115,7 +115,7 @@ export default function EventDrawer({ event, onClose, onEventSaved, onEventDelet
   // Local state for detail fields
   const [name, setName] = useState(event?.name ?? '')
   const [slug, setSlug] = useState(event?.slug ?? '')
-  const [slugTouched, setSlugTouched] = useState(false)
+  const [slugTouched, setSlugTouched] = useState(!isNew) // existing events: never auto-derive slug
   const [date,    setDate]    = useState(event?.date ?? '')
   const [endDate, setEndDate] = useState(event?.end_date ?? '')
   const [location, setLocation] = useState(event?.location ?? '')
