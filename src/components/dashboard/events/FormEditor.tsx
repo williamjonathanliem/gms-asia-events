@@ -17,6 +17,26 @@ import { toast } from 'sonner'
 
 type Tab = 'fields' | 'theme'
 
+const DEFAULT_POPUP_CONTENT = `Registration Period
+Registration is open from 7 June to 2 August 2026, or until all available seats have been filled.
+
+Registration Confirmation
+Your registration will only be confirmed after payment has been successfully received and verified by the Conference team.
+
+Cancellation & Refund Policy
+All registrations are non-refundable. Once payment has been made, registration fees cannot be refunded for any reason, including cancellation, schedule conflicts, travel issues, or inability to attend.
+
+Conference Ticket Transfer
+Registration is non-transferable and cannot be assigned to another person.
+
+Important Notes
+• Participants are responsible for their own travel, accommodation, visa, and other personal expenses unless otherwise stated.
+• The organizing committee reserves the right to make necessary adjustments to the event schedule, speakers, or program.
+• By submitting this registration form, you confirm that all information provided is accurate and complete.
+
+Agreement
+By proceeding with this registration, I acknowledge that I have read and agreed to the terms and conditions above.`
+
 // ── Option tables ─────────────────────────────────────────────
 
 const FONT_OPTIONS: { key: FormFontFamily; label: string; css: string; url: string | null }[] = [
@@ -214,6 +234,10 @@ export default function FormEditor({ event, globalChurches }: { event: EventWith
   const [coreFields,   setCoreFields]   = useState<CoreField[] | null>(event.core_fields ?? null)
   const [customFields, setCustomFields] = useState<CustomField[]>(event.custom_fields ?? [])
 
+  const [popupEnabled,  setPopupEnabled]  = useState(event.popup_enabled ?? false)
+  const [popupContent,  setPopupContent]  = useState(event.popup_content ?? DEFAULT_POPUP_CONTENT)
+  const [savingPopup,   setSavingPopup]   = useState(false)
+
   const [theme, setTheme] = useState<FormTheme>(resolveTheme(event.form_theme))
   const set = (patch: Partial<FormTheme>) => setTheme((t) => ({ ...t, ...patch }))
 
@@ -242,6 +266,14 @@ export default function FormEditor({ event, globalChurches }: { event: EventWith
     else if (res.url) { set({ bannerUrl: res.url }); toast.success('Banner uploaded') }
     // reset file input so the same file can be re-uploaded after changes
     e.target.value = ''
+  }
+
+  async function savePopup() {
+    setSavingPopup(true)
+    const res = await updateEvent(event.id, { popup_enabled: popupEnabled, popup_content: popupContent || null })
+    setSavingPopup(false)
+    if (res.error) toast.error(res.error)
+    else { toast.success('Popup saved'); router.refresh() }
   }
 
   async function saveTheme() {
@@ -306,6 +338,66 @@ export default function FormEditor({ event, globalChurches }: { event: EventWith
               fields={customFields}
               onChange={setCustomFields}
             />
+          </section>
+
+          {/* ── Popup ── */}
+          <section className="border-t border-[#E5E5E5] pt-8 space-y-5">
+            <div>
+              <h2 className="text-xs font-semibold uppercase tracking-widest text-muted mb-1">Registration Pop-up</h2>
+              <p className="text-sm text-muted">
+                Shown as a modal when the form first loads. Registrants must acknowledge before they can proceed.
+              </p>
+            </div>
+
+            {/* Toggle */}
+            <div className="flex items-center justify-between rounded border border-[#E5E5E5] px-3 py-3">
+              <div>
+                <p className="text-sm font-medium text-[#111111]">Enable pop-up</p>
+                <p className="text-[10px] text-muted mt-0.5">Show this notice before registrants can fill the form</p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={popupEnabled}
+                onClick={() => setPopupEnabled(v => !v)}
+                className={cn(
+                  'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none',
+                  popupEnabled ? 'bg-[#111111]' : 'bg-[#D1D1D1]'
+                )}
+              >
+                <span className={cn(
+                  'pointer-events-none inline-block size-4 rounded-full bg-white shadow transition-transform',
+                  popupEnabled ? 'translate-x-4' : 'translate-x-0'
+                )} />
+              </button>
+            </div>
+
+            {/* Content textarea */}
+            {popupEnabled && (
+              <div className="space-y-2">
+                <div>
+                  <label className="block text-sm font-medium text-[#111111] mb-0.5">Pop-up content</label>
+                  <p className="text-xs text-muted">
+                    Separate paragraphs with a blank line. A line followed by indented lines renders as a titled section.
+                  </p>
+                </div>
+                <textarea
+                  value={popupContent}
+                  onChange={(e) => setPopupContent(e.target.value)}
+                  rows={14}
+                  className="w-full rounded border border-[#E5E5E5] px-3 py-2 text-sm text-[#111111] font-mono leading-relaxed focus:outline-none focus:border-[#111111] resize-y"
+                />
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={savePopup}
+              disabled={savingPopup}
+              className="rounded bg-[#111111] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#2a2a2a] disabled:opacity-50 transition-colors"
+            >
+              {savingPopup ? 'Saving...' : 'Save Popup'}
+            </button>
           </section>
         </div>
       )}

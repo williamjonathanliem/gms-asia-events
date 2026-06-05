@@ -1,6 +1,6 @@
 import { getCurrentStaffUser } from '@/lib/supabase/auth'
 import { redirect } from 'next/navigation'
-import { getGlobalChurches, getRegistrationPopup } from './actions'
+import { getGlobalChurches } from './actions'
 import SettingsClient from '@/components/dashboard/settings/SettingsClient'
 import type { Metadata } from 'next'
 
@@ -10,10 +10,7 @@ export default async function SettingsPage() {
   const staff = await getCurrentStaffUser()
   if (staff?.role !== 'super_admin') redirect('/dashboard')
 
-  const [churches, popup] = await Promise.all([
-    getGlobalChurches(),
-    getRegistrationPopup(),
-  ])
+  const churches = await getGlobalChurches()
 
   return (
     <div className="min-h-screen">
@@ -22,7 +19,7 @@ export default async function SettingsPage() {
         <p className="mt-1 text-sm text-muted">Global configuration shared across all events</p>
       </div>
       <div className="px-4 py-6 sm:px-8 space-y-10 max-w-2xl">
-        <SettingsClient initialChurches={churches} initialPopup={popup} />
+        <SettingsClient initialChurches={churches} />
       </div>
     </div>
   )

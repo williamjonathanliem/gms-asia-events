@@ -1,39 +1,19 @@
 'use client'
 
 import { useState } from 'react'
-import { updateGlobalChurches, updateRegistrationPopup } from '@/app/dashboard/settings/actions'
-import type { RegistrationPopupSettings } from '@/app/dashboard/settings/actions'
+import { updateGlobalChurches } from '@/app/dashboard/settings/actions'
 import { Input } from '@/components/ui/input'
-import { cn } from '@/lib/utils'
 
 interface Props {
   initialChurches: string[]
-  initialPopup:    RegistrationPopupSettings
 }
 
-export default function SettingsClient({ initialChurches, initialPopup }: Props) {
+export default function SettingsClient({ initialChurches }: Props) {
   const [churches, setChurches] = useState<string[]>(initialChurches)
-
-  // ── Popup state ───────────────────────────────────────────
-  const [popupEnabled, setPopupEnabled] = useState(initialPopup.enabled)
-  const [popupContent, setPopupContent] = useState(initialPopup.content)
-  const [popupSaving,  setPopupSaving]  = useState(false)
-  const [popupSaved,   setPopupSaved]   = useState(false)
-  const [popupError,   setPopupError]   = useState<string | null>(null)
-
-  async function handleSavePopup() {
-    setPopupSaving(true)
-    setPopupError(null)
-    const res = await updateRegistrationPopup({ enabled: popupEnabled, content: popupContent })
-    setPopupSaving(false)
-    if (res.error) { setPopupError(res.error); return }
-    setPopupSaved(true)
-    setTimeout(() => setPopupSaved(false), 2000)
-  }
-  const [draft, setDraft] = useState('')
-  const [saving, setSaving] = useState(false)
+  const [draft,    setDraft]    = useState('')
+  const [saving,   setSaving]   = useState(false)
   const [savedMsg, setSavedMsg] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error,    setError]    = useState<string | null>(null)
 
   function addChurch() {
     const t = draft.trim()
@@ -64,9 +44,7 @@ export default function SettingsClient({ initialChurches, initialPopup }: Props)
   }
 
   return (
-    <>
     <section className="space-y-4">
-      {/* Section header */}
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm font-semibold text-[#111111]">GMS Church Branches</p>
@@ -91,7 +69,6 @@ export default function SettingsClient({ initialChurches, initialPopup }: Props)
         </p>
       )}
 
-      {/* Branch list */}
       <div className="divide-y divide-[#E5E5E5] rounded-lg border border-[#E5E5E5]">
         {churches.length === 0 && (
           <p className="px-4 py-8 text-center text-sm text-muted">
@@ -100,7 +77,6 @@ export default function SettingsClient({ initialChurches, initialPopup }: Props)
         )}
         {churches.map((church, i) => (
           <div key={i} className="flex items-center gap-3 px-4 py-3">
-            {/* Reorder */}
             <div className="flex flex-col gap-0.5">
               <button
                 type="button"
@@ -139,7 +115,6 @@ export default function SettingsClient({ initialChurches, initialPopup }: Props)
         ))}
       </div>
 
-      {/* Add new */}
       <div className="flex gap-2">
         <Input
           value={draft}
@@ -161,81 +136,5 @@ export default function SettingsClient({ initialChurches, initialPopup }: Props)
         {churches.length} branch{churches.length !== 1 ? 'es' : ''} · Reorder with the arrows, remove with the trash icon.
       </p>
     </section>
-
-    {/* ── Registration popup ── */}
-    <section className="space-y-4 border-t border-[#E5E5E5] pt-8">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-sm font-semibold text-[#111111]">Registration Info Pop-up</p>
-          <p className="mt-0.5 text-xs text-muted">
-            When enabled, registrants see this information modal before filling out the form.
-            Applies to all events.
-          </p>
-        </div>
-        <div className="flex items-center gap-3 shrink-0">
-          {(popupSaved || popupSaving) && (
-            <span className="text-xs text-muted">{popupSaving ? 'Saving…' : 'Saved ✓'}</span>
-          )}
-          <button
-            type="button"
-            onClick={handleSavePopup}
-            disabled={popupSaving}
-            className="rounded-btn bg-[#111111] px-4 py-1.5 text-xs font-medium text-white hover:opacity-80 disabled:opacity-40"
-          >
-            Save
-          </button>
-        </div>
-      </div>
-
-      {popupError && (
-        <p className="rounded-lg border border-error/30 bg-error/5 px-4 py-3 text-xs text-error">
-          {popupError}
-        </p>
-      )}
-
-      {/* Toggle */}
-      <div className="flex items-center justify-between rounded-lg border border-[#E5E5E5] px-4 py-3">
-        <div>
-          <p className="text-sm font-medium text-[#111111]">Show pop-up on registration forms</p>
-          <p className="text-xs text-muted mt-0.5">Registrants must click &ldquo;OK&rdquo; before they can fill out the form.</p>
-        </div>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={popupEnabled}
-          onClick={() => setPopupEnabled(v => !v)}
-          className={cn(
-            'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none',
-            popupEnabled ? 'bg-[#111111]' : 'bg-[#D1D1D1]'
-          )}
-        >
-          <span className={cn(
-            'pointer-events-none inline-block size-4 rounded-full bg-white shadow transition-transform',
-            popupEnabled ? 'translate-x-4' : 'translate-x-0'
-          )} />
-        </button>
-      </div>
-
-      {/* Content editor */}
-      {popupEnabled && (
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-medium text-[#111111]">Pop-up content</p>
-            <p className="text-xs text-muted">Plain text · Use blank lines to separate sections</p>
-          </div>
-          <textarea
-            value={popupContent}
-            onChange={(e) => setPopupContent(e.target.value)}
-            rows={16}
-            className="w-full rounded-lg border border-[#E5E5E5] px-4 py-3 text-sm text-[#111111] font-mono leading-relaxed placeholder:text-muted focus:border-[#111111] focus:outline-none resize-y"
-            placeholder="Enter the information to display in the pop-up..."
-          />
-          <p className="text-xs text-muted">
-            This text is shown to all registrants before they fill out any event registration form.
-          </p>
-        </div>
-      )}
-    </section>
-    </>
   )
 }

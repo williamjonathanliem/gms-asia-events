@@ -83,6 +83,8 @@ export async function updateEvent(
     early_bird_end_date: string | null
     currency: string
     form_theme: Record<string, string>
+    popup_enabled: boolean
+    popup_content: string | null
   }>
 ): Promise<{ error?: string }> {
   try {

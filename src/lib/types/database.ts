@@ -126,6 +126,8 @@ export interface Event {
   early_bird_end_date: string | null
   currency: string
   form_theme: Partial<FormTheme> | null
+  popup_enabled: boolean
+  popup_content: string | null
   created_at: string
 }
 
