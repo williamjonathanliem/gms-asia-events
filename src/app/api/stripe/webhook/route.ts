@@ -34,6 +34,20 @@ export async function POST(req: NextRequest) {
   }
 
   // ── Handle events ────────────────────────────────────────────
+
+  // Clean up orphaned pending registrations so the registrant can retry
+  if (event.type === 'payment_intent.payment_failed' || event.type === 'payment_intent.canceled') {
+    const paymentIntent = event.data.object as Stripe.PaymentIntent
+    const supabase = createServiceClient()
+    await supabase
+      .from('registrations')
+      .delete()
+      .eq('stripe_payment_intent_id', paymentIntent.id)
+      .eq('payment_status', 'pending')
+    // Non-fatal — log but always return 200 so Stripe doesn't retry
+    return NextResponse.json({ received: true })
+  }
+
   if (event.type === 'payment_intent.succeeded') {
     const paymentIntent = event.data.object as Stripe.PaymentIntent
     const supabase = createServiceClient()
