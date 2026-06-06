@@ -12,8 +12,28 @@ import {
 } from '@/app/dashboard/blast/actions'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
-import { Select } from '@/components/ui/select-native'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
+import { Combobox } from '@/components/ui/combobox'
 import { formatDateTime } from '@/lib/utils'
+
+// Thin wrapper — maps 'all' sentinel so Radix Select works with non-empty values
+function FSel({ value, onValueChange, className, children }: {
+  value: string
+  onValueChange: (v: string) => void
+  className?: string
+  children: React.ReactNode
+}) {
+  return (
+    <Select value={value} onValueChange={onValueChange}>
+      <SelectTrigger className={`h-9 w-full rounded-btn border-[#E5E5E5] text-sm text-[#111111] ${className ?? ''}`}>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>{children}</SelectContent>
+    </Select>
+  )
+}
 
 const RichEditor = dynamic(() => import('./RichEditor'), {
   ssr: false,
@@ -226,41 +246,43 @@ export default function BlastClient({ events, packages, churches, initialBlasts 
             {recipientMode === 'filters' && (
               <div className="rounded-lg border border-[#E5E5E5] bg-[#fafafa] p-4 space-y-3">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <Label htmlFor="f-event">Event</Label>
-                    <Select id="f-event" value={filters.eventId} onChange={(e) => setFilter('eventId', e.target.value)}>
-                      <option value="all">All events</option>
+                  <div className="space-y-1.5">
+                    <Label>Event</Label>
+                    <FSel value={filters.eventId} onValueChange={(v) => setFilter('eventId', v)}>
+                      <SelectItem value="all">All events</SelectItem>
                       {events.map((ev) => (
-                        <option key={ev.id} value={ev.id}>{ev.name}</option>
+                        <SelectItem key={ev.id} value={ev.id}>{ev.name}</SelectItem>
                       ))}
-                    </Select>
+                    </FSel>
                   </div>
-                  <div>
-                    <Label htmlFor="f-status">Payment Status</Label>
-                    <Select id="f-status" value={filters.status} onChange={(e) => setFilter('status', e.target.value as BlastFilters['status'])}>
-                      <option value="all">All statuses</option>
-                      <option value="verified">Verified</option>
-                      <option value="pending">Pending</option>
-                      <option value="rejected">Rejected</option>
-                    </Select>
+                  <div className="space-y-1.5">
+                    <Label>Payment Status</Label>
+                    <FSel value={filters.status} onValueChange={(v) => setFilter('status', v as BlastFilters['status'])}>
+                      <SelectItem value="all">All statuses</SelectItem>
+                      <SelectItem value="verified">Verified</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="rejected">Rejected</SelectItem>
+                    </FSel>
                   </div>
-                  <div>
-                    <Label htmlFor="f-pkg">Package</Label>
-                    <Select id="f-pkg" value={filters.packageId} onChange={(e) => setFilter('packageId', e.target.value)}>
-                      <option value="all">All packages</option>
+                  <div className="space-y-1.5">
+                    <Label>Package</Label>
+                    <FSel value={filters.packageId} onValueChange={(v) => setFilter('packageId', v)}>
+                      <SelectItem value="all">All packages</SelectItem>
                       {visiblePackages.map((p) => (
-                        <option key={p.id} value={p.id}>{p.name}</option>
+                        <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                       ))}
-                    </Select>
+                    </FSel>
                   </div>
-                  <div>
-                    <Label htmlFor="f-church">Church</Label>
-                    <Select id="f-church" value={filters.church} onChange={(e) => setFilter('church', e.target.value)}>
-                      <option value="all">All churches</option>
-                      {churches.map((c) => (
-                        <option key={c} value={c}>{c}</option>
-                      ))}
-                    </Select>
+                  <div className="space-y-1.5">
+                    <Label>Church</Label>
+                    <Combobox
+                      options={['All churches', ...churches]}
+                      value={filters.church === 'all' ? 'All churches' : filters.church}
+                      onChange={(v) => setFilter('church', v === 'All churches' ? 'all' : v)}
+                      placeholder="All churches"
+                      searchPlaceholder="Search churches..."
+                      className="h-9 w-full rounded-btn border border-[#E5E5E5] bg-white text-sm text-[#111111] justify-between"
+                    />
                   </div>
                 </div>
               </div>

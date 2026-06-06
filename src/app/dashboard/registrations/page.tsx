@@ -22,8 +22,9 @@ const UUID_RE =
 interface SearchParams {
   search?: string
   status?: string
-  package?: string
+  package?: string   // package id (UUID)
   church?: string
+  payment?: string   // 'manual' | 'stripe'
   page?: string
   /** `all` or a specific event id; omitted = active event (unscoped staff only) */
   event?: string
@@ -120,11 +121,32 @@ export default async function RegistrationsPage({
   const page = Math.max(1, Number(searchParams.page ?? 1))
   const offset = (page - 1) * PAGE_SIZE
 
+  // Packages for walk-in drawer + package filter options
+  const { data: packagesData } = filterEventId
+    ? await supabase.from('packages').select('*').eq('event_id', filterEventId).order('price', { ascending: false })
+    : { data: [] }
+  const packages = (packagesData ?? []) as Package[]
+
+  let eventPricing: {
+    currency: string
+    early_bird_enabled: boolean
+    early_bird_auto_change: boolean
+    early_bird_end_date: string | null
+  } | null = null
+  if (filterEventId) {
+    const { data: evPricing } = await supabase
+      .from('events')
+      .select('currency, early_bird_enabled, early_bird_auto_change, early_bird_end_date')
+      .eq('id', filterEventId)
+      .single()
+    eventPricing = evPricing
+  }
+
   let query = supabase
     .from('registrations')
     .select(
       `id, full_name, email, phone, gms_church, nij,
-       payment_status, payment_notes, payment_screenshot_url, qr_token,
+       payment_method, payment_status, payment_notes, payment_screenshot_url, qr_token,
        amount_paid, is_early_bird, created_at, package_id, custom_answers,
        events(name, date, currency, custom_fields),
        packages(name, price, toolkit_items),
@@ -153,38 +175,16 @@ export default async function RegistrationsPage({
     query = query.eq('gms_church', searchParams.church)
   }
 
-  // Package filter: match by package name (A/B/C) via nested filter
-  // We filter after fetch since Supabase can't filter on a joined column directly
-  // Packages for walk-in drawer
-  const { data: packagesData } = filterEventId
-    ? await supabase.from('packages').select('*').eq('event_id', filterEventId).order('price', { ascending: false })
-    : { data: [] }
-  const packages = (packagesData ?? []) as Package[]
+  if (searchParams.payment) {
+    query = query.eq('payment_method', searchParams.payment)
+  }
 
-  let eventPricing: {
-    currency: string
-    early_bird_enabled: boolean
-    early_bird_auto_change: boolean
-    early_bird_end_date: string | null
-  } | null = null
-  if (filterEventId) {
-    const { data: evPricing } = await supabase
-      .from('events')
-      .select('currency, early_bird_enabled, early_bird_auto_change, early_bird_end_date')
-      .eq('id', filterEventId)
-      .single()
-    eventPricing = evPricing
+  if (searchParams.package) {
+    query = query.eq('package_id', searchParams.package)
   }
 
   const { data: rawData, count } = await query
-
-  let registrations = (rawData ?? []) as any[]
-
-  if (searchParams.package) {
-    registrations = registrations.filter(
-      (r) => r.packages?.name === searchParams.package
-    )
-  }
+  const registrations = (rawData ?? []) as any[]
 
   return (
     <div className="min-h-screen">
@@ -233,6 +233,7 @@ export default async function RegistrationsPage({
             eventFilterLocked={!!scopedEventId}
             eventsForPicker={eventsForPicker}
             activeEventId={scopedEventId ? null : activeEventId}
+            packages={packages.map((p) => ({ id: p.id, name: p.name }))}
           />
         </Suspense>
 
