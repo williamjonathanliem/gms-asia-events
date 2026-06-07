@@ -1,6 +1,6 @@
-﻿'use client'
+'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { cn, formatDateTime, formatCurrency, formatDate } from '@/lib/utils'
 import { StatusBadge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -58,7 +58,7 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
     <div className="flex items-start gap-4 border-b border-[#E5E5E5] py-3 last:border-0">
       <span className="w-28 shrink-0 text-xs font-medium text-muted pt-0.5">{label}</span>
       <span className="text-sm text-[#111111]">
-        {value ?? <span className="text-muted">”</span>}
+        {value ?? <span className="text-muted">--</span>}
       </span>
     </div>
   )
@@ -68,13 +68,14 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
   const isOpen = !!registration
   const canEdit = ['super_admin', 'admin'].includes(staffRole)
 
-  // ”” Local state ”””””””””””””””””””””””””””””””””””””””””””””””
+  // Local state
   const [localStatus, setLocalStatus] = useState<PaymentStatus | null>(null)
   const [localNotes, setLocalNotes] = useState<string | null>(null)
   const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null)
   const [screenshotLoading, setScreenshotLoading] = useState(false)
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
   const [screenshotModal, setScreenshotModal] = useState(false)
+  const [screenshotZoom, setScreenshotZoom] = useState(1)
   const [tokenCopied, setTokenCopied] = useState(false)
 
   // Edit mode
@@ -96,7 +97,7 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
   const currentStatus = localStatus ?? reg?.payment_status ?? 'pending'
   const currentNotes = localNotes !== null ? localNotes : reg?.payment_notes ?? null
 
-  // ”” Load screenshot + QR when drawer opens ””””””””””””””””””””
+  // Load screenshot + QR when drawer opens
   useEffect(() => {
     if (!reg) return
 
@@ -109,11 +110,10 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
     setRejectReason('')
     setActionError('')
     setTokenCopied(false)
+    setScreenshotModal(false)
 
-    // QR ” always load for admin
     getQRDataUrl(reg.qr_token).then(setQrDataUrl).catch(console.error)
 
-    // Screenshot
     if (reg.payment_screenshot_url) {
       setScreenshotLoading(true)
       getSignedScreenshotUrl(reg.payment_screenshot_url)
@@ -122,6 +122,14 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
         .finally(() => setScreenshotLoading(false))
     }
   }, [reg?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Close screenshot modal on Escape (keyCode 27); reset zoom when modal closes
+  useEffect(() => {
+    if (!screenshotModal) { setScreenshotZoom(1); return }
+    const onKey = (e: KeyboardEvent) => { if (e.keyCode === 27) setScreenshotModal(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [screenshotModal])
 
   const startEdit = () => {
     if (!reg) return
@@ -167,7 +175,6 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
     setLocalStatus('verified')
     setLocalNotes(null)
     onUpdate(reg.id, { payment_status: 'verified', payment_notes: null })
-    // Now generate the QR since it's verified
     getQRDataUrl(reg.qr_token).then(setQrDataUrl).catch(console.error)
   }
 
@@ -206,7 +213,7 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
       >
         {!reg ? null : (
           <>
-            {/* ”” Header ”” */}
+            {/* Header */}
             <div className="flex items-start justify-between border-b border-[#E5E5E5] px-6 py-4 gap-4">
               <div className="min-w-0">
                 <p className="font-semibold text-[#111111] truncate">
@@ -232,10 +239,10 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
               </div>
             </div>
 
-            {/* ”” Scrollable body ”” */}
+            {/* Scrollable body */}
             <div className="flex-1 overflow-y-auto px-6 py-6 space-y-7">
 
-              {/* ”” Details / Edit form ”” */}
+              {/* Details / Edit form */}
               <section>
                 <SectionTitle>Details</SectionTitle>
 
@@ -262,7 +269,7 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
                     {editError && <p className="text-xs text-error">{editError}</p>}
                     <div className="flex gap-2">
                       <Button size="sm" onClick={saveEdit} disabled={editPending}>
-                        {editPending ? 'Saving' : 'Save'}
+                        {editPending ? 'Saving...' : 'Save'}
                       </Button>
                       <Button variant="secondary" size="sm" onClick={() => setIsEditing(false)} disabled={editPending}>
                         Cancel
@@ -281,7 +288,7 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
                       label="Package"
                       value={
                         reg.packages
-                          ? `Package ${reg.packages.name} ” ${formatCurrency(
+                          ? `${reg.packages.name} · ${formatCurrency(
                               reg.amount_paid ?? reg.packages.price,
                               reg.events?.currency ?? 'IDR'
                             )}${reg.is_early_bird ? ' (Early bird)' : ''}`
@@ -305,7 +312,7 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
                 )}
               </section>
 
-              {/* ”” Toolkit items ”” */}
+              {/* Toolkit items */}
               <section>
                 <SectionTitle>Toolkit Items</SectionTitle>
                 {reg.packages?.toolkit_items?.length ? (
@@ -318,11 +325,11 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
                     ))}
                   </ul>
                 ) : (
-                  <p className="text-sm text-muted">No toolkit items (package missing or empty).</p>
+                  <p className="text-sm text-muted">No toolkit items.</p>
                 )}
               </section>
 
-              {/* ”” Payment screenshot ”” */}
+              {/* Payment screenshot */}
               <section>
                 <SectionTitle>Payment Screenshot</SectionTitle>
                 {screenshotLoading && (
@@ -349,7 +356,7 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
                 )}
               </section>
 
-              {/* ”” QR Code ”” */}
+              {/* QR Code */}
               <section>
                 <SectionTitle>QR Code</SectionTitle>
                 {qrDataUrl ? (
@@ -374,13 +381,13 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
                         </a>
                         <p className="text-xs text-muted leading-relaxed">
                           {currentStatus === 'verified'
-                            ? 'Active ” scanner will accept this.'
+                            ? 'Active — scanner will accept this.'
                             : 'Inactive until payment is verified.'}
                         </p>
                       </div>
                     </div>
 
-                    {/* Manual token ” for manual check-in */}
+                    {/* Manual token for manual check-in */}
                     <div className="rounded-lg border border-[#E5E5E5] bg-[#fafafa] px-4 py-3">
                       <p className="mb-1.5 text-xs font-medium text-muted">Manual check-in token</p>
                       <div className="flex items-center gap-2">
@@ -396,7 +403,7 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
                           }}
                           className="shrink-0 rounded-btn border border-[#E5E5E5] px-3 py-1.5 text-xs font-medium text-muted hover:bg-white hover:text-[#111111] transition-colors"
                         >
-                          {tokenCopied ? 'Copied œ“' : 'Copy'}
+                          {tokenCopied ? 'Copied!' : 'Copy'}
                         </button>
                       </div>
                     </div>
@@ -406,7 +413,7 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
                 )}
               </section>
 
-              {/* ”” Attendance ”” */}
+              {/* Attendance */}
               <section>
                 <SectionTitle>Attendance</SectionTitle>
                 {(() => {
@@ -419,7 +426,7 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
                         value={
                           toolkit ? (
                             <span className="text-success text-xs font-medium">
-                              Collected · {formatDateTime(toolkit.scanned_at)}
+                              Collected &middot; {formatDateTime(toolkit.scanned_at)}
                             </span>
                           ) : (
                             <span className="text-xs text-muted">Not collected</span>
@@ -431,7 +438,7 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
                         value={
                           event ? (
                             <span className="text-success text-xs font-medium">
-                              Attended · {formatDateTime(event.scanned_at)}
+                              Attended &middot; {formatDateTime(event.scanned_at)}
                             </span>
                           ) : (
                             <span className="text-xs text-muted">Not attended</span>
@@ -443,7 +450,7 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
                 })()}
               </section>
 
-              {/* ”” Payment actions ”” */}
+              {/* Payment actions */}
               {canEdit && (
                 <section>
                   <SectionTitle>Payment</SectionTitle>
@@ -480,7 +487,7 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
                           disabled={actionPending || !rejectReason.trim()}
                           className="bg-error hover:bg-error/90"
                         >
-                          {actionPending ? 'Rejecting' : 'Confirm Rejection'}
+                          {actionPending ? 'Rejecting...' : 'Confirm Rejection'}
                         </Button>
                         <Button
                           variant="secondary"
@@ -503,7 +510,7 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
                           disabled={actionPending}
                           className="border border-success bg-white text-success hover:bg-success/5"
                         >
-                          {actionPending ? 'Updating' : 'Verify Payment'}
+                          {actionPending ? 'Updating...' : 'Verify Payment'}
                         </Button>
                       )}
                       {currentStatus !== 'rejected' && (
@@ -519,7 +526,7 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
                       )}
                       {currentStatus === 'verified' && (
                         <p className="text-xs text-success font-medium self-center">
-                          Payment verified ” confirmation email sent.
+                          Payment verified &mdash; confirmation email sent.
                         </p>
                       )}
                     </div>
@@ -531,30 +538,82 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
         )}
       </aside>
 
-      {/* ”” Screenshot full-size modal ”” */}
+      {/* Screenshot full-size modal — z-[60] sits above the drawer panel (z-50) */}
       {screenshotModal && screenshotUrl && (
         <div
-          className="fixed inset-0 z-60 flex items-center justify-center bg-black/70 p-6"
+          className="fixed inset-0 z-[60] flex flex-col bg-black/90"
           onClick={() => setScreenshotModal(false)}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={screenshotUrl}
-            alt="Payment screenshot"
-            className="max-h-full max-w-full rounded-lg object-contain"
+          {/* Top bar */}
+          <div
+            className="flex shrink-0 items-center justify-between gap-3 px-4 py-3"
             onClick={(e) => e.stopPropagation()}
-          />
-          <button
-            onClick={() => setScreenshotModal(false)}
-            className="absolute top-4 right-4 rounded-full bg-white/10 p-2 text-white hover:bg-white/20"
           >
-            <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+            <p className="text-sm font-medium text-white/70">Payment Screenshot</p>
+
+            <div className="flex items-center gap-2">
+              {/* Zoom controls */}
+              <div className="flex items-center gap-1 rounded-lg bg-white/10 p-1">
+                <button
+                  onClick={() => setScreenshotZoom((z) => Math.max(0.5, parseFloat((z - 0.25).toFixed(2))))}
+                  disabled={screenshotZoom <= 0.5}
+                  className="flex size-7 items-center justify-center rounded-md text-white transition-colors hover:bg-white/20 disabled:opacity-30"
+                  aria-label="Zoom out"
+                >
+                  <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607zM13.5 10.5h-6" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => setScreenshotZoom(1)}
+                  className="min-w-[3rem] text-center text-xs font-medium text-white/70 hover:text-white transition-colors"
+                >
+                  {Math.round(screenshotZoom * 100)}%
+                </button>
+                <button
+                  onClick={() => setScreenshotZoom((z) => Math.min(4, parseFloat((z + 0.25).toFixed(2))))}
+                  disabled={screenshotZoom >= 4}
+                  className="flex size-7 items-center justify-center rounded-md text-white transition-colors hover:bg-white/20 disabled:opacity-30"
+                  aria-label="Zoom in"
+                >
+                  <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607zM10.5 7.5v6m3-3h-6" />
+                  </svg>
+                </button>
+              </div>
+
+              <button
+                onClick={() => setScreenshotModal(false)}
+                className="flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-sm font-medium text-white hover:bg-white/20 transition-colors"
+              >
+                <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Close
+              </button>
+            </div>
+          </div>
+
+          {/* Image — scrollable in both axes when zoomed */}
+          <div
+            className="min-h-0 flex-1 overflow-auto p-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={screenshotUrl}
+              alt="Payment screenshot"
+              className="mx-auto block rounded-lg transition-[width] duration-150"
+              style={{ width: `${screenshotZoom * 100}%`, maxWidth: screenshotZoom > 1 ? 'none' : '100%' }}
+            />
+          </div>
+
+          {/* Hint */}
+          <p className="shrink-0 pb-4 text-center text-xs text-white/30">
+            Tap outside or press Esc to close
+          </p>
         </div>
       )}
     </>
   )
 }
-

@@ -10,7 +10,7 @@ import RegistrationsSkeleton from '@/components/dashboard/registrations/Registra
 import { formatDateRange } from '@/lib/utils'
 import { Suspense } from 'react'
 import type { Metadata } from 'next'
-import type { PaymentStatus, Package } from '@/lib/types/database'
+import type { PaymentStatus, Package, CustomField } from '@/lib/types/database'
 
 export const metadata: Metadata = { title: 'Registrations' }
 
@@ -22,9 +22,10 @@ const UUID_RE =
 interface SearchParams {
   search?: string
   status?: string
-  package?: string   // package id (UUID)
+  package?: string     // package id (UUID)
   church?: string
-  payment?: string   // 'manual' | 'stripe'
+  payment?: string     // 'manual' | 'stripe'
+  allergies?: string   // 'yes' | 'no'
   page?: string
   /** `all` or a specific event id; omitted = active event (unscoped staff only) */
   event?: string
@@ -133,13 +134,26 @@ export default async function RegistrationsPage({
     early_bird_auto_change: boolean
     early_bird_end_date: string | null
   } | null = null
+  let allergiesFieldId: string | null = null
+  let allergiesLabel = 'Dietary / Allergies'
+
   if (filterEventId) {
     const { data: evPricing } = await supabase
       .from('events')
-      .select('currency, early_bird_enabled, early_bird_auto_change, early_bird_end_date')
+      .select('currency, early_bird_enabled, early_bird_auto_change, early_bird_end_date, custom_fields')
       .eq('id', filterEventId)
       .single()
-    eventPricing = evPricing
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    eventPricing = evPricing as any
+
+    // Find the allergies / dietary custom field for this event (if any)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const evCustomFields = (((evPricing as any)?.custom_fields) ?? []) as CustomField[]
+    const allergiesField = evCustomFields.find((f) => /allerg|dietary|food/i.test(f.label))
+    if (allergiesField) {
+      allergiesFieldId = allergiesField.id
+      allergiesLabel = allergiesField.label
+    }
   }
 
   let query = supabase
@@ -183,20 +197,34 @@ export default async function RegistrationsPage({
     query = query.eq('package_id', searchParams.package)
   }
 
+  if (searchParams.allergies && allergiesFieldId) {
+    if (searchParams.allergies === 'yes') {
+      // custom_answers has the field and it is non-empty
+      query = query
+        .not(`custom_answers->>${allergiesFieldId}`, 'is', null)
+        .neq(`custom_answers->>${allergiesFieldId}`, '')
+    } else if (searchParams.allergies === 'no') {
+      // custom_answers field is missing or empty
+      query = query.or(
+        `custom_answers->>${allergiesFieldId}.is.null,custom_answers->>${allergiesFieldId}.eq.`
+      )
+    }
+  }
+
   const { data: rawData, count } = await query
   const registrations = (rawData ?? []) as any[]
 
   return (
     <div className="min-h-screen">
       {/* Header — sticky so event name is always visible while scrolling */}
-      <div className="sticky top-14 lg:top-0 z-10 bg-white border-b border-[#E5E5E5] px-4 py-4 sm:px-8 sm:py-5">
-        <div className="flex items-start justify-between gap-4">
+      <div className="sticky top-14 lg:top-0 z-10 bg-white border-b border-[#E5E5E5] px-4 py-3 sm:px-8 sm:py-5">
+        <div className="flex items-center justify-between gap-4">
           <div>
-            <p className="text-xs font-medium uppercase tracking-widest text-muted">
+            <p className="hidden sm:block text-xs font-medium uppercase tracking-widest text-muted">
               {headerTitle}
               {headerDate ? ` · ${formatDateRange(headerDate, headerEndDate)}` : ''}
             </p>
-            <h1 className="mt-1 text-xl font-semibold text-[#111111]">Registrations</h1>
+            <h1 className="text-lg font-semibold text-[#111111] sm:mt-1 sm:text-xl">Registrations</h1>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
             <RefreshButton />
@@ -234,6 +262,8 @@ export default async function RegistrationsPage({
             eventsForPicker={eventsForPicker}
             activeEventId={scopedEventId ? null : activeEventId}
             packages={packages.map((p) => ({ id: p.id, name: p.name }))}
+            allergiesFieldId={allergiesFieldId}
+            allergiesLabel={allergiesLabel}
           />
         </Suspense>
 
@@ -244,7 +274,9 @@ export default async function RegistrationsPage({
           searchParams.status ||
           searchParams.package ||
           searchParams.church ||
-          searchParams.event
+          searchParams.event ||
+          searchParams.payment ||
+          searchParams.allergies
             ? ' matching filters'
             : ''}
         </p>

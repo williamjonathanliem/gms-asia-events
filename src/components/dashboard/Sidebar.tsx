@@ -101,28 +101,29 @@ export default function Sidebar({ staff, activeEvents }: Props) {
   return (
     <aside className="fixed inset-y-0 left-0 z-30 flex w-64 flex-col border-r border-[#E5E5E5] bg-white">
       {/* Brand */}
-      <div className="flex h-16 items-center border-b border-[#E5E5E5] px-6">
-        <div className="flex flex-1 items-center gap-2.5">
-          <Image
-            src="/gmschurch_logo.jpg"
-            alt="GMS"
-            width={40}
-            height={40}
-          />
-          <span className="text-sm font-semibold text-[#111111]">GMS Events</span>
+      <div className="flex h-16 shrink-0 items-center gap-3 border-b border-[#E5E5E5] px-5">
+        <Image
+          src="/gmschurch_logo.jpg"
+          alt="GMS"
+          width={32}
+          height={32}
+          className="shrink-0 rounded-md"
+        />
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-[#111111] leading-none">GMS Events</p>
+          <p className="mt-0.5 text-[10px] text-muted leading-none">Dashboard</p>
         </div>
-        {/* Close button shown only on mobile via CSS in DashboardShell */}
       </div>
 
-      {/* Active event indicator */}
+      {/* Active event pill */}
       {activeEvents.length > 0 && (
-        <div className="border-b border-[#E5E5E5] px-4 py-3 space-y-1.5">
+        <div className="shrink-0 border-b border-[#E5E5E5] px-4 py-3 space-y-1.5">
           <p className="text-[10px] font-semibold uppercase tracking-widest text-muted">
             Active Event{activeEvents.length > 1 ? 's' : ''}
           </p>
           {activeEvents.map((ev) => (
-            <div key={ev.id} className="flex items-start gap-2">
-              <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-success" />
+            <div key={ev.id} className="flex items-start gap-2.5">
+              <span className="mt-1 size-1.5 shrink-0 rounded-full bg-success" />
               <div className="min-w-0">
                 <p className="text-xs font-medium text-[#111111] leading-snug truncate">{ev.name}</p>
                 <p className="text-[10px] text-muted leading-snug">{formatDateRange(ev.date, ev.end_date)}</p>
@@ -133,7 +134,7 @@ export default function Sidebar({ staff, activeEvents }: Props) {
       )}
 
       {/* Nav */}
-      <nav className="flex-1 space-y-0.5 px-3 py-4">
+      <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-0.5">
         {navItems.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
           return (
@@ -141,38 +142,45 @@ export default function Sidebar({ staff, activeEvents }: Props) {
               key={item.href}
               href={item.href}
               className={cn(
-                'flex items-center gap-3 rounded-btn px-3 py-2 text-sm transition-colors',
+                'group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
                 isActive
                   ? 'bg-[#111111] text-white'
-                  : 'text-muted hover:bg-[#f5f5f5] hover:text-[#111111]'
+                  : 'text-[#555] hover:bg-[#f5f5f5] hover:text-[#111111]'
               )}
             >
-              {item.icon}
+              <span className={cn('shrink-0 transition-colors', isActive ? 'text-white' : 'text-muted group-hover:text-[#111111]')}>
+                {item.icon}
+              </span>
               {item.label}
             </Link>
           )
         })}
       </nav>
 
-      {/* User + sign out */}
-      <div className="border-t border-[#E5E5E5] px-3 py-4 space-y-1">
+      {/* Footer: install + user + sign out */}
+      <div className="shrink-0 border-t border-[#E5E5E5] px-3 py-3 space-y-1">
         <InstallButton variant="button" />
-        <div className="px-3 py-2">
-          <p className="text-xs font-medium text-[#111111] truncate">{staff.email}</p>
-          <p className="text-xs text-muted capitalize">{staff.role.replace('_', ' ')}</p>
+
+        {/* User info */}
+        <div className="flex items-center gap-3 rounded-lg px-3 py-2.5">
+          <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-[#f5f5f5] text-[10px] font-semibold text-[#555] uppercase select-none">
+            {staff.email.charAt(0)}
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs font-medium text-[#111111] truncate">{staff.email}</p>
+            <p className="text-[10px] text-muted capitalize">{staff.role.replace('_', ' ')}</p>
+          </div>
         </div>
+
         <form action={signOut}>
           <button
             type="submit"
-            className="flex w-full items-center gap-3 rounded-btn px-3 py-2 text-sm text-muted transition-colors hover:bg-[#f5f5f5] hover:text-[#111111]"
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-muted transition-colors hover:bg-[#f5f5f5] hover:text-[#111111]"
           >
             {iconSignOut}
             Sign Out
           </button>
         </form>
-        <p className="px-3 pt-2 text-[10px] text-muted/50">
-          Made by William Jonathan
-        </p>
       </div>
     </aside>
   )

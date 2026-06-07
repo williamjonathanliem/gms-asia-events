@@ -47,6 +47,9 @@ export interface SearchFiltersProps {
   eventsForPicker?: { id: string; name: string; date: string; end_date?: string | null }[]
   activeEventId?: string | null
   packages?: { id: string; name: string }[]
+  /** If the active event has a dietary/allergies custom field, pass its field ID so the filter appears */
+  allergiesFieldId?: string | null
+  allergiesLabel?: string
 }
 
 export default function SearchFilters({
@@ -54,6 +57,8 @@ export default function SearchFilters({
   eventsForPicker = [],
   activeEventId = null,
   packages = [],
+  allergiesFieldId = null,
+  allergiesLabel = 'Dietary / Allergies',
 }: SearchFiltersProps) {
   const router       = useRouter()
   const pathname     = usePathname()
@@ -61,13 +66,14 @@ export default function SearchFilters({
   const [isPending, startTransition] = useTransition()
   const debounceRef  = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const hasSecondary = !!(searchParams.get('package') || searchParams.get('church'))
+  const hasSecondary = !!(searchParams.get('package') || searchParams.get('church') || searchParams.get('allergies'))
   const [showMore, setShowMore] = useState(hasSecondary)
   useEffect(() => { if (hasSecondary) setShowMore(true) }, [hasSecondary])
 
   const secondaryCount =
-    (searchParams.get('package') ? 1 : 0) +
-    (searchParams.get('church')  ? 1 : 0)
+    (searchParams.get('package')   ? 1 : 0) +
+    (searchParams.get('church')    ? 1 : 0) +
+    (searchParams.get('allergies') ? 1 : 0)
 
   const push = useCallback(
     (params: URLSearchParams) => {
@@ -236,6 +242,19 @@ export default function SearchFilters({
             className={cn(comboboxCls, 'w-full sm:w-56')}
           />
 
+          {/* Allergens — only shown when event has a dietary/allergy custom field */}
+          {allergiesFieldId && (
+            <FSel
+              value={searchParams.get('allergies') ?? ''}
+              onValueChange={(v) => updateParam('allergies', v)}
+              className="w-full sm:w-auto"
+            >
+              <SelectItem value="all">Allergens — All</SelectItem>
+              <SelectItem value="yes">Has allergens</SelectItem>
+              <SelectItem value="no">None</SelectItem>
+            </FSel>
+          )}
+
           {/* Clear secondary */}
           {secondaryCount > 0 && (
             <button
@@ -244,6 +263,7 @@ export default function SearchFilters({
                 const params = new URLSearchParams(searchParams.toString())
                 params.delete('package')
                 params.delete('church')
+                params.delete('allergies')
                 params.delete('page')
                 push(params)
               }}

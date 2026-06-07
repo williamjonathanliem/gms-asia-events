@@ -20,7 +20,7 @@ const PAYPAY_QR_IMAGE = '/paypay-qr.png'
 const PAYPAY_LINK = 'https://qr.paypay.ne.jp/p2p01_zCcb7GDpzP9swuRY'
 
 type BankRow     = { label: string; value: string; copyValue?: string; copyable?: boolean }
-type BankSection = { title?: string; rows: BankRow[] }
+type BankSection = { title?: string; rows: BankRow[]; afterNote?: string }
 type BankOption  = { id: string; label: string; sections?: BankSection[]; note?: string; hasQR?: boolean }
 
 const BANK_OPTIONS: BankOption[] = [
@@ -70,6 +70,7 @@ const BANK_OPTIONS: BankOption[] = [
           { label: 'Number', value: '070-9194-7415', copyValue: '07091947415', copyable: true },
           { label: 'Name',   value: 'GMS TOKYO' },
         ],
+        afterNote: 'Please write your full name in the PayPay message.',
       },
     ],
     hasQR: false,
@@ -484,7 +485,7 @@ export default function RegistrationForm({ event, packages, globalChurches, popu
       {theme.bannerMode === 'image' && theme.bannerUrl && (
         <div className={cn('w-full overflow-hidden shrink-0', isCard && 'rounded-t-2xl')}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={theme.bannerUrl} alt={event.name} className="h-44 w-full object-cover sm:h-52" />
+          <img src={theme.bannerUrl} alt={event.name} className="w-full object-cover" style={{ aspectRatio: '21/9' }} />
         </div>
       )}
 
@@ -568,7 +569,7 @@ export default function RegistrationForm({ event, packages, globalChurches, popu
                   </h2>
                   {churchFields.map((field) => {
                     const fe = fieldErrors[field.key]
-                    if (field.key === 'gms_church') {
+                    if (field.key === 'gms_church') { 
                       return (
                         <div key={field.key}>
                           <Label htmlFor="gms_church" required={field.required} className={c.label}>{field.label}</Label>
@@ -790,7 +791,7 @@ export default function RegistrationForm({ event, packages, globalChurches, popu
             Payment Method
           </h2>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {(['manual', 'card'] as const).map((m) => {
               const active = paymentMethod === m
               return (
@@ -799,16 +800,30 @@ export default function RegistrationForm({ event, packages, globalChurches, popu
                   type="button"
                   onClick={() => setPaymentMethod(m)}
                   className={cn(
-                    'rounded-lg border-2 px-4 py-3 text-left transition-all',
+                    'rounded-lg border-2 px-4 py-3.5 text-left transition-all',
                     active ? cn(box.active, 'backdrop-blur-md') : cn(box.base, box.hover)
                   )}
                   style={active ? { borderColor: theme.accentColor } : undefined}
                 >
-                  <div className={`text-sm font-semibold ${c.heading}`}>
-                    {m === 'manual' ? 'Bank Transfer – Japan Local Bank' : 'Pay by Card'}
+                  {/* Icon + title row */}
+                  <div className="flex items-center gap-2 mb-1">
+                    {m === 'manual' ? (
+                      <svg className={`size-4 shrink-0 ${c.subtext}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" />
+                      </svg>
+                    ) : (
+                      <svg className={`size-4 shrink-0 ${c.subtext}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
+                      </svg>
+                    )}
+                    <span className={`text-sm font-semibold ${c.heading}`}>
+                      {m === 'manual' ? 'Bank Transfer' : 'Pay by Card'}
+                    </span>
                   </div>
-                  <div className={`mt-0.5 text-xs ${c.subtext}`}>
-                    {m === 'manual' ? 'Recommended for Japan Registrants - Japanese Yen' : 'For International Registrants - All Currencies'}
+                  <div className={`text-xs leading-snug ${c.subtext}`}>
+                    {m === 'manual'
+                      ? 'Japan local bank · Rakuten / PayPay · JPY'
+                      : 'International · All currencies · Stripe'}
                   </div>
                 </button>
               )
@@ -872,6 +887,19 @@ export default function RegistrationForm({ event, packages, globalChurches, popu
                                   </div>
                                 ))}
                               </div>
+                              {section.afterNote && (
+                                <div className={cn(
+                                  'mt-3 flex items-start gap-2 rounded-md px-3 py-2 text-xs',
+                                  isDark ? 'bg-white/10 border border-white/15' : 'bg-amber-50 border border-amber-200'
+                                )}>
+                                  <svg className={cn('mt-0.5 size-3.5 shrink-0', isDark ? 'text-white/60' : 'text-amber-500')} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                  <p className={cn('leading-relaxed', isDark ? 'text-white/70' : 'text-amber-800')}>
+                                    {section.afterNote}
+                                  </p>
+                                </div>
+                              )}
                             </div>
                           ))}
                           {bank.hasQR && (
