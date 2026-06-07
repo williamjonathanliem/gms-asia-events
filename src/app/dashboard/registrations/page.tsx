@@ -143,11 +143,9 @@ export default async function RegistrationsPage({
       .select('currency, early_bird_enabled, early_bird_auto_change, early_bird_end_date, custom_fields')
       .eq('id', filterEventId)
       .single()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     eventPricing = evPricing as any
 
     // Find the allergies / dietary custom field for this event (if any)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const evCustomFields = (((evPricing as any)?.custom_fields) ?? []) as CustomField[]
     const allergiesField = evCustomFields.find((f) => /allerg|dietary|food/i.test(f.label))
     if (allergiesField) {
