@@ -89,9 +89,11 @@ export default async function SuccessPage({
             </p>
           )}
           {!isStripe && (
-            <p className="text-sm text-muted">
-              Your QR code will be emailed once our team verifies your payment.
-            </p>
+            <div className="text-sm text-muted space-y-2">
+              <p>Your QR code will be emailed once our team verifies your payment.</p>
+              <p>If you have any questions, contact your regional PICs.</p>
+              <p>Please check your <strong>spam folder</strong> if you do not see the email within that time frame.</p>
+            </div>
           )}
         </div>
 
