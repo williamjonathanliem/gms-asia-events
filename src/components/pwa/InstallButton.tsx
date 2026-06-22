@@ -15,12 +15,14 @@ interface Props {
 }
 
 export default function InstallButton({ variant = 'button' }: Props) {
+  const [mounted, setMounted] = useState(false)
   const [platform, setPlatform] = useState<Platform>('desktop')
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [installed, setInstalled] = useState(false)
   const [showIOSSteps, setShowIOSSteps] = useState(false)
 
   useEffect(() => {
+    setMounted(true)
     if (window.matchMedia('(display-mode: standalone)').matches) {
       setInstalled(true)
       return
@@ -47,6 +49,8 @@ export default function InstallButton({ variant = 'button' }: Props) {
     if (outcome === 'accepted') setInstalled(true)
     setDeferredPrompt(null)
   }
+
+  if (!mounted) return null
 
   // ── Banner variant (login page) ───────────────────────────────
   if (variant === 'banner') {

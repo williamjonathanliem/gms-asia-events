@@ -40,7 +40,7 @@ export async function updateGlobalChurches(
 export async function renameChurch(
   oldName: string,
   newName: string
-): Promise<{ error?: string; updatedRegistrations?: number }> {
+): Promise<{ error?: string }> {
   try {
     await requireSuperAdmin()
     const trimmed = newName.trim()
@@ -58,11 +58,10 @@ export async function renameChurch(
     if (settingsErr) return { error: settingsErr.message }
 
     // Update existing registrations that used the old name
-    const { count, error: regErr } = await supabase
+    const { error: regErr } = await supabase
       .from('registrations')
       .update({ gms_church: trimmed })
       .eq('gms_church', oldName)
-      .select('id', { count: 'exact', head: true })
     if (regErr) return { error: regErr.message }
 
     revalidatePath('/dashboard/settings')

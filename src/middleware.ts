@@ -1,5 +1,4 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
-import { createClient } from '@supabase/supabase-js'
 import { NextResponse, type NextRequest, type NextFetchEvent } from 'next/server'
 
 const SKIP_LOG = /^\/(api\/|_next\/|favicon|.*\.(ico|png|jpg|jpeg|svg|webp|css|js|woff2?))/
@@ -11,28 +10,43 @@ function logAccess(
 ): Promise<void> {
   if (SKIP_LOG.test(request.nextUrl.pathname)) return Promise.resolve()
 
-  const serviceClient = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-
   const ip =
     (request as any).ip ??
     request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
     request.headers.get('x-real-ip') ??
     null
 
-  return serviceClient.from('access_logs').insert({
-    path:        request.nextUrl.pathname + (request.nextUrl.search || ''),
-    method:      request.method,
-    ip,
-    country:     request.geo?.country ?? null,
-    user_agent:  request.headers.get('user-agent'),
-    referer:     request.headers.get('referer'),
-    staff_id:    user?.id ?? null,
-    staff_email: user?.email ?? null,
-    status,
-  }).then(() => {})
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  if (!serviceKey || !supabaseUrl) {
+    console.error('[access_log] Missing SUPABASE_SERVICE_ROLE_KEY or NEXT_PUBLIC_SUPABASE_URL')
+    return Promise.resolve()
+  }
+
+  return fetch(`${supabaseUrl}/rest/v1/access_logs`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': serviceKey,
+      'Authorization': `Bearer ${serviceKey}`,
+      'Prefer': 'return=minimal',
+    },
+    body: JSON.stringify({
+      path:        request.nextUrl.pathname + (request.nextUrl.search || ''),
+      method:      request.method,
+      ip,
+      country:     request.geo?.country ?? null,
+      user_agent:  request.headers.get('user-agent'),
+      referer:     request.headers.get('referer'),
+      staff_id:    user?.id ?? null,
+      staff_email: user?.email ?? null,
+      status,
+    }),
+  })
+    .then(async (res) => {
+      if (!res.ok) console.error('[access_log] Insert failed:', res.status, await res.text())
+    })
+    .catch((err) => console.error('[access_log] Fetch error:', err))
 }
 
 export async function middleware(request: NextRequest, event: NextFetchEvent) {
