@@ -1,20 +1,28 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
-import { NextResponse, type NextRequest } from 'next/server'
+import { NextResponse, type NextRequest, type NextFetchEvent } from 'next/server'
 
 const SKIP_LOG = /^\/(api\/|_next\/|favicon|.*\.(ico|png|jpg|jpeg|svg|webp|css|js|woff2?))/
 
-function logAccess(request: NextRequest, user: { id: string; email?: string } | null, status = 200) {
-  if (SKIP_LOG.test(request.nextUrl.pathname)) return
+function logAccess(
+  request: NextRequest,
+  user: { id: string; email?: string } | null,
+  status = 200
+): Promise<void> {
+  if (SKIP_LOG.test(request.nextUrl.pathname)) return Promise.resolve()
+
   const serviceClient = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
+
   const ip =
+    (request as any).ip ??
     request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
     request.headers.get('x-real-ip') ??
     null
-  serviceClient.from('access_logs').insert({
+
+  return serviceClient.from('access_logs').insert({
     path:        request.nextUrl.pathname + (request.nextUrl.search || ''),
     method:      request.method,
     ip,
@@ -24,10 +32,10 @@ function logAccess(request: NextRequest, user: { id: string; email?: string } | 
     staff_id:    user?.id ?? null,
     staff_email: user?.email ?? null,
     status,
-  }).then() // fire-and-forget, never await
+  }).then(() => {})
 }
 
-export async function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest, event: NextFetchEvent) {
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
@@ -53,7 +61,6 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // Refresh session — must be called before any route check
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -67,19 +74,18 @@ export async function middleware(request: NextRequest) {
     const loginUrl = request.nextUrl.clone()
     loginUrl.pathname = '/auth/login'
     loginUrl.searchParams.set('next', pathname)
-    logAccess(request, null, 302)
+    event.waitUntil(logAccess(request, null, 302))
     return NextResponse.redirect(loginUrl)
   }
 
-  // Redirect authenticated users away from login
   if (pathname === '/auth/login' && user) {
     const dashboardUrl = request.nextUrl.clone()
     dashboardUrl.pathname = '/dashboard'
-    logAccess(request, user, 302)
+    event.waitUntil(logAccess(request, user, 302))
     return NextResponse.redirect(dashboardUrl)
   }
 
-  logAccess(request, user)
+  event.waitUntil(logAccess(request, user))
   return supabaseResponse
 }
 
