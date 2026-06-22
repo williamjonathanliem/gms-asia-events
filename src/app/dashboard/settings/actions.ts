@@ -66,7 +66,7 @@ export async function renameChurch(
 
     revalidatePath('/dashboard/settings')
     revalidatePath('/dashboard/registrations')
-    return { updatedRegistrations: count ?? 0 }
+    return {}
   } catch (e: any) {
     return { error: e.message }
   }
