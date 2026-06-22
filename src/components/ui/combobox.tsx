@@ -42,7 +42,7 @@ export function Combobox({
           role="combobox"
           aria-expanded={open}
           className={cn(
-            'flex w-full items-center justify-between gap-2 text-left',
+            'flex w-full items-center justify-between gap-2 px-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-[#111111] focus-visible:ring-offset-0',
             className
           )}
           style={{ color: value ? 'inherit' : undefined }}

@@ -37,6 +37,42 @@ export async function updateGlobalChurches(
   }
 }
 
+export async function renameChurch(
+  oldName: string,
+  newName: string
+): Promise<{ error?: string; updatedRegistrations?: number }> {
+  try {
+    await requireSuperAdmin()
+    const trimmed = newName.trim()
+    if (!trimmed) return { error: 'Name cannot be empty' }
+    if (trimmed === oldName) return {}
+
+    const supabase = createServiceClient()
+
+    // Update the settings list
+    const churches = await getGlobalChurches()
+    const updatedList = churches.map((c) => (c === oldName ? trimmed : c))
+    const { error: settingsErr } = await supabase
+      .from('settings')
+      .upsert({ key: 'gms_churches', value: updatedList, updated_at: new Date().toISOString() })
+    if (settingsErr) return { error: settingsErr.message }
+
+    // Update existing registrations that used the old name
+    const { count, error: regErr } = await supabase
+      .from('registrations')
+      .update({ gms_church: trimmed })
+      .eq('gms_church', oldName)
+      .select('id', { count: 'exact', head: true })
+    if (regErr) return { error: regErr.message }
+
+    revalidatePath('/dashboard/settings')
+    revalidatePath('/dashboard/registrations')
+    return { updatedRegistrations: count ?? 0 }
+  } catch (e: any) {
+    return { error: e.message }
+  }
+}
+
 // ── Registration popup ────────────────────────────────────────
 
 export interface RegistrationPopupSettings {

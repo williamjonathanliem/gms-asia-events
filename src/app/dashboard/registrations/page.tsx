@@ -25,6 +25,7 @@ interface SearchParams {
   package?: string     // package id (UUID)
   church?: string
   payment?: string     // 'manual' | 'stripe'
+  location?: string    // 'japan' | 'international'
   allergies?: string   // 'yes' | 'no'
   page?: string
   /** `all` or a specific event id; omitted = active event (unscoped staff only) */
@@ -191,6 +192,12 @@ export default async function RegistrationsPage({
     query = query.eq('payment_method', searchParams.payment)
   }
 
+  if (searchParams.location === 'japan') {
+    query = query.or('gms_church.ilike.%tokyo%,gms_church.ilike.%osaka%')
+  } else if (searchParams.location === 'international') {
+    query = query.not('gms_church', 'ilike', '%tokyo%').not('gms_church', 'ilike', '%osaka%')
+  }
+
   if (searchParams.package) {
     query = query.eq('package_id', searchParams.package)
   }
@@ -274,6 +281,7 @@ export default async function RegistrationsPage({
           searchParams.church ||
           searchParams.event ||
           searchParams.payment ||
+          searchParams.location ||
           searchParams.allergies
             ? ' matching filters'
             : ''}

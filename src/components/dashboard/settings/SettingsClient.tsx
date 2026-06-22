@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { updateGlobalChurches } from '@/app/dashboard/settings/actions'
+import { updateGlobalChurches, renameChurch } from '@/app/dashboard/settings/actions'
 import { Input } from '@/components/ui/input'
 
 interface Props {
@@ -14,6 +14,11 @@ export default function SettingsClient({ initialChurches }: Props) {
   const [saving,   setSaving]   = useState(false)
   const [savedMsg, setSavedMsg] = useState(false)
   const [error,    setError]    = useState<string | null>(null)
+
+  // Inline rename state
+  const [editingIdx,   setEditingIdx]   = useState<number | null>(null)
+  const [editingValue, setEditingValue] = useState('')
+  const [renamePending, setRenamePending] = useState(false)
 
   function addChurch() {
     const t = draft.trim()
@@ -31,6 +36,31 @@ export default function SettingsClient({ initialChurches }: Props) {
     const [item] = next.splice(from, 1)
     next.splice(to, 0, item)
     setChurches(next)
+  }
+
+  function startEdit(i: number) {
+    setEditingIdx(i)
+    setEditingValue(churches[i])
+    setError(null)
+  }
+
+  function cancelEdit() {
+    setEditingIdx(null)
+    setEditingValue('')
+  }
+
+  async function confirmRename() {
+    if (editingIdx === null) return
+    const oldName = churches[editingIdx]
+    const newName = editingValue.trim()
+    if (!newName || newName === oldName) { cancelEdit(); return }
+    setRenamePending(true)
+    setError(null)
+    const res = await renameChurch(oldName, newName)
+    setRenamePending(false)
+    if (res.error) { setError(res.error); return }
+    setChurches(churches.map((c, i) => i === editingIdx ? newName : c))
+    cancelEdit()
   }
 
   async function handleSave() {
@@ -100,17 +130,61 @@ export default function SettingsClient({ initialChurches }: Props) {
               </button>
             </div>
 
-            <span className="flex-1 text-sm text-[#111111]">{church}</span>
+            {editingIdx === i ? (
+              <div className="flex flex-1 items-center gap-2">
+                <Input
+                  autoFocus
+                  value={editingValue}
+                  onChange={(e) => setEditingValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') { e.preventDefault(); confirmRename() }
+                    if (e.key === 'Escape') cancelEdit()
+                  }}
+                  className="h-7 text-sm py-0"
+                />
+                <button
+                  type="button"
+                  onClick={confirmRename}
+                  disabled={renamePending || !editingValue.trim()}
+                  className="shrink-0 rounded-btn bg-[#111111] px-2.5 py-1 text-xs font-medium text-white disabled:opacity-40"
+                >
+                  {renamePending ? '...' : 'Save'}
+                </button>
+                <button
+                  type="button"
+                  onClick={cancelEdit}
+                  className="shrink-0 rounded-btn border border-[#E5E5E5] px-2.5 py-1 text-xs text-muted hover:text-[#111111]"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <span className="flex-1 text-sm text-[#111111]">{church}</span>
+            )}
 
-            <button
-              type="button"
-              onClick={() => removeChurch(i)}
-              className="rounded p-1.5 text-muted hover:bg-error/5 hover:text-error transition-colors"
-            >
-              <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-              </svg>
-            </button>
+            {editingIdx !== i && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => startEdit(i)}
+                  className="rounded p-1.5 text-muted hover:bg-[#f5f5f5] hover:text-[#111111] transition-colors"
+                  title="Rename"
+                >
+                  <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => removeChurch(i)}
+                  className="rounded p-1.5 text-muted hover:bg-error/5 hover:text-error transition-colors"
+                >
+                  <svg className="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                  </svg>
+                </button>
+              </>
+            )}
           </div>
         ))}
       </div>
