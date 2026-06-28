@@ -5,6 +5,7 @@ import './globals.css'
 import { cn } from "@/lib/utils";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "sonner";
+import NavigationLoader from '@/components/NavigationLoader'
 
 export const viewport: Viewport = {
   themeColor: '#000000',
@@ -41,6 +42,7 @@ export default function RootLayout({
     >
       <body className="min-h-screen bg-white font-sans text-[#111111] antialiased">
         <TooltipProvider>
+          <NavigationLoader />
           {children}
           <Toaster richColors closeButton position="bottom-right" />
         </TooltipProvider>
