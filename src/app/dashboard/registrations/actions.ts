@@ -206,6 +206,27 @@ export async function rejectPayment(
   return { status: 'rejected' }
 }
 
+// ── Delete registration ───────────────────────────────────────
+export async function deleteRegistration(
+  registrationId: string
+): Promise<{ error?: string }> {
+  const staff = await getCurrentStaffUser()
+  if (!staff || !['super_admin', 'admin'].includes(staff.role)) {
+    return { error: 'Unauthorised' }
+  }
+
+  const supabase = createServiceClient()
+  const { error } = await supabase
+    .from('registrations')
+    .delete()
+    .eq('id', registrationId)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/dashboard/registrations')
+  return {}
+}
+
 // ── Edit registration fields ──────────────────────────────────
 export async function updateRegistration(
   registrationId: string,

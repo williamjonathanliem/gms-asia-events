@@ -14,6 +14,7 @@ import {
   verifyPayment,
   rejectPayment,
   updateRegistration,
+  deleteRegistration,
 } from '@/app/dashboard/registrations/actions'
 import type { PaymentStatus, StaffRole } from '@/lib/types/database'
 
@@ -42,6 +43,7 @@ interface Props {
   registration: DrawerRegistration | null
   onClose: () => void
   onUpdate: (id: string, updates: Partial<DrawerRegistration>) => void
+  onDelete: (id: string) => void
   staffRole: StaffRole
 }
 
@@ -64,7 +66,7 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
   )
 }
 
-export default function RegistrantDrawer({ registration, onClose, onUpdate, staffRole }: Props) {
+export default function RegistrantDrawer({ registration, onClose, onUpdate, onDelete, staffRole }: Props) {
   const isOpen = !!registration
   const canEdit = ['super_admin', 'admin'].includes(staffRole)
 
@@ -93,6 +95,11 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
   const [actionPending, setActionPending] = useState(false)
   const [actionError, setActionError] = useState('')
 
+  // Delete mode
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deletePending, setDeletePending] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
+
   const reg = registration
   const currentStatus = localStatus ?? reg?.payment_status ?? 'pending'
   const currentNotes = localNotes !== null ? localNotes : reg?.payment_notes ?? null
@@ -111,6 +118,8 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
     setActionError('')
     setTokenCopied(false)
     setScreenshotModal(false)
+    setConfirmDelete(false)
+    setDeleteError('')
 
     getQRDataUrl(reg.qr_token).then(setQrDataUrl).catch(console.error)
 
@@ -176,6 +185,17 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
     setLocalNotes(null)
     onUpdate(reg.id, { payment_status: 'verified', payment_notes: null })
     getQRDataUrl(reg.qr_token).then(setQrDataUrl).catch(console.error)
+  }
+
+  const handleDelete = async () => {
+    if (!reg) return
+    setDeletePending(true)
+    setDeleteError('')
+    const result = await deleteRegistration(reg.id)
+    setDeletePending(false)
+    if (result.error) { setDeleteError(result.error); return }
+    onDelete(reg.id)
+    onClose()
   }
 
   const handleReject = async () => {
@@ -449,6 +469,50 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, staf
                   )
                 })()}
               </section>
+
+              {/* Delete registration */}
+              {canEdit && (
+                <section>
+                  <SectionTitle>Danger Zone</SectionTitle>
+                  {deleteError && (
+                    <p className="mb-3 text-xs text-error">{deleteError}</p>
+                  )}
+                  {confirmDelete ? (
+                    <div className="rounded-lg border border-error/30 bg-error/5 p-4 space-y-3">
+                      <p className="text-sm font-medium text-[#111111]">Delete this registration?</p>
+                      <p className="text-xs text-muted">
+                        This permanently removes <strong>{reg.full_name}</strong>&apos;s record and cannot be undone.
+                      </p>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={handleDelete}
+                          disabled={deletePending}
+                          className="bg-error hover:bg-error/90"
+                        >
+                          {deletePending ? 'Deleting...' : 'Yes, delete'}
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => setConfirmDelete(false)}
+                          disabled={deletePending}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDelete(true)}
+                      className="text-xs font-medium text-error hover:underline"
+                    >
+                      Delete registration
+                    </button>
+                  )}
+                </section>
+              )}
 
               {/* Payment actions */}
               {canEdit && (

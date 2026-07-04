@@ -56,6 +56,11 @@ export default function RegistrationsClient({
     []
   )
 
+  const handleDelete = useCallback((id: string) => {
+    setRows((prev) => prev.filter((r) => r.id !== id))
+    setSelected(null)
+  }, [])
+
   const goToPage = (p: number) => {
     const params = new URLSearchParams(searchParams.toString())
     params.set('page', String(p))
@@ -173,6 +178,7 @@ export default function RegistrationsClient({
         registration={selected}
         onClose={() => setSelected(null)}
         onUpdate={handleUpdate}
+        onDelete={handleDelete}
         staffRole={staffRole}
       />
     </>
