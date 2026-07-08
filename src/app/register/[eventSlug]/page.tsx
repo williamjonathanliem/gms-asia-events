@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation'
+import { headers } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { getGlobalChurches } from '@/app/dashboard/settings/actions'
 import RegistrationForm from './RegistrationForm'

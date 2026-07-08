@@ -821,9 +821,11 @@ export default function RegistrationForm({ event, packages, globalChurches, popu
                     </span>
                   </div>
                   <div className={`text-xs leading-snug ${c.subtext}`}>
-                    {m === 'manual'
-                      ? 'Japan local bank · Rakuten / PayPay · JPY'
-                      : 'International · All currencies · Stripe'}
+                    {m === 'manual' ? (
+                      <><span className="text-error font-medium">Japan residents only</span> · Rakuten / PayPay · JPY</>
+                    ) : (
+                      'Required for international participants · Also available for Japan residents'
+                    )}
                   </div>
                 </button>
               )
