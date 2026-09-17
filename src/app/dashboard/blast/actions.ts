@@ -23,7 +23,9 @@ export interface EmailBlast {
   filters: BlastFilters
   recipient_mode: RecipientMode
   manual_emails: string[] | null
+  queued_emails: string[] | null
   recipient_count: number
+  status: 'complete' | 'partial'
   sent_at: string
   sent_by: string | null
 }
@@ -86,6 +88,42 @@ export async function previewBlastRecipients(
 }
 
 const QR_TAG = '{{QR}}'
+const DAILY_LIMIT = 300
+
+async function sendBatch(
+  recipients: Recipient[],
+  bodyHtml: string,
+  subject: string
+): Promise<{ sent: number; failed: number }> {
+  const transporter = getTransporter()
+  const from = FROM()
+  const hasQR = bodyHtml.includes(QR_TAG)
+  const BATCH = 20
+  let sent = 0
+  let failed = 0
+
+  for (let i = 0; i < recipients.length; i += BATCH) {
+    const batch = recipients.slice(i, i + BATCH)
+    await Promise.all(
+      batch.map(async (r) => {
+        try {
+          let body = bodyHtml
+          if (hasQR) {
+            const img = r.qr_token
+              ? `<img src="${qrCodeUrl(r.qr_token)}" width="220" height="220" alt="Your QR Code" style="display:block;margin:16px auto;border-radius:8px;" />`
+              : ''
+            body = body.replace(QR_TAG, img)
+          }
+          await transporter.sendMail({ from, to: r.email, subject, html: emailLayout(subject, body) })
+          sent++
+        } catch {
+          failed++
+        }
+      })
+    )
+  }
+  return { sent, failed }
+}
 
 // ── Send blast ────────────────────────────────────────────────
 export async function sendEmailBlast(
@@ -94,82 +132,111 @@ export async function sendEmailBlast(
   mode: RecipientMode,
   filters: BlastFilters,
   manualEmails: string[]
-): Promise<{ sent: number; error?: string }> {
+): Promise<{ sent: number; failed: number; queued: number; error?: string }> {
   try {
     const staff = await requireAdminOrAbove()
-    if (!subject.trim()) return { sent: 0, error: 'Subject is required' }
-    if (!bodyHtml.trim() || bodyHtml === '<p></p>') return { sent: 0, error: 'Message body is required' }
+    if (!subject.trim()) return { sent: 0, failed: 0, queued: 0, error: 'Subject is required' }
+    if (!bodyHtml.trim() || bodyHtml === '<p></p>') return { sent: 0, failed: 0, queued: 0, error: 'Message body is required' }
 
     const hasQR = bodyHtml.includes(QR_TAG)
     const supabase = createServiceClient()
-    let recipients: Recipient[] = []
+    let allRecipients: Recipient[] = []
 
     if (mode === 'emails') {
       const valid = Array.from(new Set(
-        manualEmails
-          .map((e) => e.trim().toLowerCase())
-          .filter((e) => EMAIL_RE.test(e))
+        manualEmails.map((e) => e.trim().toLowerCase()).filter((e) => EMAIL_RE.test(e))
       ))
-      if (valid.length === 0) return { sent: 0, error: 'No valid email addresses entered' }
+      if (valid.length === 0) return { sent: 0, failed: 0, queued: 0, error: 'No valid email addresses entered' }
 
       if (hasQR) {
         const { data: regs } = await supabase
-          .from('registrations')
-          .select('email, qr_token')
-          .in('email', valid)
-          .eq('payment_status', 'verified')
+          .from('registrations').select('email, qr_token')
+          .in('email', valid).eq('payment_status', 'verified')
         const tokenMap = new Map((regs ?? []).map((r) => [r.email, r.qr_token]))
-        recipients = valid.map((email) => ({ email, full_name: '', qr_token: tokenMap.get(email) }))
+        allRecipients = valid.map((email) => ({ email, full_name: '', qr_token: tokenMap.get(email) }))
       } else {
-        recipients = valid.map((email) => ({ email, full_name: '' }))
+        allRecipients = valid.map((email) => ({ email, full_name: '' }))
       }
     } else {
       const { data, error } = await buildQuery(supabase, filters, hasQR)
-      if (error) return { sent: 0, error: error.message }
-      recipients = dedup(data ?? [])
-      if (recipients.length === 0) return { sent: 0, error: 'No recipients match these filters' }
+      if (error) return { sent: 0, failed: 0, queued: 0, error: error.message }
+      allRecipients = dedup(data ?? [])
+      if (allRecipients.length === 0) return { sent: 0, failed: 0, queued: 0, error: 'No recipients match these filters' }
     }
 
-    const transporter = getTransporter()
-    const from = FROM()
-    const BATCH = 20
+    const toSend = allRecipients.slice(0, DAILY_LIMIT)
+    const overflow = allRecipients.slice(DAILY_LIMIT)
 
-    for (let i = 0; i < recipients.length; i += BATCH) {
-      const batch = recipients.slice(i, i + BATCH)
-      await Promise.all(
-        batch.map(async (r) => {
-          let body = bodyHtml
-          if (hasQR) {
-            const img = r.qr_token
-              ? `<img src="${qrCodeUrl(r.qr_token)}" width="220" height="220" alt="Your QR Code" style="display:block;margin:16px auto;border-radius:8px;" />`
-              : ''
-            body = body.replace(QR_TAG, img)
-          }
-          await transporter.sendMail({
-            from,
-            to: r.email,
-            subject,
-            html: emailLayout(subject, body),
-          })
-        })
-      )
-    }
+    const { sent, failed } = await sendBatch(toSend, bodyHtml, subject)
 
-    // Save to history
+    const queuedEmails = overflow.map((r) => r.email)
+    const isPartial = queuedEmails.length > 0
+
     await supabase.from('email_blasts').insert({
       subject,
       body_html: bodyHtml,
       filters,
       recipient_mode: mode,
-      manual_emails: mode === 'emails' ? recipients.map((r) => r.email) : null,
-      recipient_count: recipients.length,
+      manual_emails: mode === 'emails' ? allRecipients.map((r) => r.email) : null,
+      queued_emails: isPartial ? queuedEmails : null,
+      recipient_count: sent,
+      status: isPartial ? 'partial' : 'complete',
       sent_by: staff.id,
     })
 
     revalidatePath('/dashboard/blast')
-    return { sent: recipients.length }
+    return { sent, failed, queued: queuedEmails.length }
   } catch (e: any) {
-    return { sent: 0, error: e.message }
+    return { sent: 0, failed: 0, queued: 0, error: e.message }
+  }
+}
+
+// ── Continue a partial blast ──────────────────────────────────
+export async function continueEmailBlast(
+  blastId: string
+): Promise<{ sent: number; failed: number; queued: number; error?: string }> {
+  try {
+    await requireAdminOrAbove()
+    const supabase = createServiceClient()
+
+    const { data: blast, error: fetchErr } = await supabase
+      .from('email_blasts')
+      .select('id, subject, body_html, queued_emails, recipient_count')
+      .eq('id', blastId)
+      .single()
+
+    if (fetchErr || !blast) return { sent: 0, failed: 0, queued: 0, error: 'Blast not found' }
+    const queue: string[] = blast.queued_emails ?? []
+    if (queue.length === 0) return { sent: 0, failed: 0, queued: 0, error: 'No queued recipients' }
+
+    const hasQR = (blast.body_html as string).includes(QR_TAG)
+    const toSendEmails = queue.slice(0, DAILY_LIMIT)
+    const remainingEmails = queue.slice(DAILY_LIMIT)
+
+    let recipients: Recipient[] = []
+    if (hasQR) {
+      const { data: regs } = await supabase
+        .from('registrations').select('email, qr_token')
+        .in('email', toSendEmails).eq('payment_status', 'verified')
+      const tokenMap = new Map((regs ?? []).map((r) => [r.email, r.qr_token]))
+      recipients = toSendEmails.map((email) => ({ email, full_name: '', qr_token: tokenMap.get(email) }))
+    } else {
+      recipients = toSendEmails.map((email) => ({ email, full_name: '' }))
+    }
+
+    const { sent, failed } = await sendBatch(recipients, blast.body_html, blast.subject)
+
+    const isPartial = remainingEmails.length > 0
+    await supabase.from('email_blasts').update({
+      queued_emails: isPartial ? remainingEmails : null,
+      status: isPartial ? 'partial' : 'complete',
+      recipient_count: (blast.recipient_count ?? 0) + sent,
+    }).eq('id', blastId)
+
+    revalidatePath('/dashboard/blast')
+    return { sent, failed, queued: remainingEmails.length }
+  } catch (e: any) {
+    return { sent: 0, failed: 0, queued: 0, error: e.message }
   }
 }
 

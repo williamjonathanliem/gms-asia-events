@@ -4,6 +4,7 @@ import { useState, useEffect, useTransition } from 'react'
 import dynamic from 'next/dynamic'
 import {
   sendEmailBlast,
+  continueEmailBlast,
   previewBlastRecipients,
   deleteEmailBlasts,
   type BlastFilters,
@@ -42,11 +43,20 @@ const RichEditor = dynamic(() => import('./RichEditor'), {
   ),
 })
 
+type Contact = {
+  full_name: string
+  email: string
+  gms_church: string
+  payment_status: string
+  event_name: string
+}
+
 interface Props {
   events: { id: string; name: string; date: string }[]
   packages: { id: string; name: string; event_id: string }[]
   churches: string[]
   initialBlasts: EmailBlast[]
+  allContacts: Contact[]
 }
 
 const DEFAULT_FILTERS: BlastFilters = {
@@ -59,6 +69,13 @@ const DEFAULT_FILTERS: BlastFilters = {
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 type TabKey = 'compose' | 'history'
+type UIMode = 'filters' | 'emails' | 'pick'
+
+const STATUS_DOT: Record<string, string> = {
+  verified: 'bg-success',
+  pending:  'bg-amber-400',
+  rejected: 'bg-error',
+}
 
 function parseEmails(raw: string): string[] {
   return raw
@@ -67,18 +84,30 @@ function parseEmails(raw: string): string[] {
     .filter(Boolean)
 }
 
-export default function BlastClient({ events, packages, churches, initialBlasts }: Props) {
+export default function BlastClient({ events, packages, churches, initialBlasts, allContacts }: Props) {
   const [tab, setTab] = useState<TabKey>('compose')
 
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
-  const [recipientMode, setRecipientMode] = useState<RecipientMode>('filters')
+  const [uiMode, setUiMode] = useState<UIMode>('filters')
   const [filters, setFilters] = useState<BlastFilters>(DEFAULT_FILTERS)
   const [emailInput, setEmailInput] = useState('')
+  const [pickedEmails, setPickedEmails] = useState<Set<string>>(new Set())
+  const [contactSearch, setContactSearch] = useState('')
   const [recipientCount, setRecipientCount] = useState<number | null>(null)
   const [invalidEmails, setInvalidEmails] = useState<string[]>([])
+
+  const filteredContacts = contactSearch.trim()
+    ? allContacts.filter((c) => {
+        const q = contactSearch.toLowerCase()
+        return c.full_name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q) || c.gms_church.toLowerCase().includes(q)
+      })
+    : allContacts
   const [sending, setSending] = useState(false)
-  const [sent, setSent] = useState<{ count: number } | null>(null)
+  const [sent, setSent] = useState<{ count: number; failed: number; queued: number } | null>(null)
+  const [continuing, setContinuing] = useState<string | null>(null)
+  const [continueResult, setContinueResult] = useState<Record<string, { sent: number; queued: number }>>({})
+  const [continueError, setContinueError] = useState<Record<string, string>>({})
   const [error, setError] = useState<string | null>(null)
   const [blasts, setBlasts] = useState<EmailBlast[]>(initialBlasts)
   const [previewing, startPreview] = useTransition()
@@ -98,10 +127,14 @@ export default function BlastClient({ events, packages, churches, initialBlasts 
 
   // Live preview
   useEffect(() => {
-    if (recipientMode === 'emails') {
+    if (uiMode === 'emails') {
       const invalid = parsedEmails.filter((e) => e && !EMAIL_RE.test(e))
       setInvalidEmails(invalid)
       setRecipientCount(new Set(validEmails).size)
+      return
+    }
+    if (uiMode === 'pick') {
+      setRecipientCount(pickedEmails.size)
       return
     }
     startPreview(async () => {
@@ -109,7 +142,7 @@ export default function BlastClient({ events, packages, churches, initialBlasts 
       setRecipientCount(res.count)
     })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters, recipientMode, emailInput])
+  }, [filters, uiMode, emailInput, pickedEmails])
 
   function setFilter<K extends keyof BlastFilters>(key: K, val: BlastFilters[K]) {
     setFilters((prev) => {
@@ -119,24 +152,24 @@ export default function BlastClient({ events, packages, churches, initialBlasts 
     })
   }
 
+  const recipientMode: RecipientMode = uiMode === 'filters' ? 'filters' : 'emails'
+
   async function handleSend() {
     setError(null)
     setSent(null)
     setSending(true)
-    const res = await sendEmailBlast(
-      subject,
-      body,
-      recipientMode,
-      filters,
-      recipientMode === 'emails' ? validEmails : []
-    )
+    const emailsToSend = uiMode === 'pick'
+      ? Array.from(pickedEmails)
+      : uiMode === 'emails' ? validEmails : []
+    const res = await sendEmailBlast(subject, body, recipientMode, filters, emailsToSend)
     setSending(false)
     if (res.error) { setError(res.error); return }
-    setSent({ count: res.sent })
+    setSent({ count: res.sent, failed: res.failed, queued: res.queued })
     setSubject('')
     setBody('')
     setFilters(DEFAULT_FILTERS)
     setEmailInput('')
+    setPickedEmails(new Set())
     const { getEmailBlasts } = await import('@/app/dashboard/blast/actions')
     setBlasts(await getEmailBlasts())
   }
@@ -169,7 +202,8 @@ export default function BlastClient({ events, packages, churches, initialBlasts 
     subject.trim() &&
     body.trim() &&
     body !== '<p></p>' &&
-    (recipientCount ?? 0) > 0
+    (recipientCount ?? 0) > 0 &&
+    (uiMode !== 'pick' || pickedEmails.size > 0)
 
   return (
     <div className="space-y-0">
@@ -203,9 +237,17 @@ export default function BlastClient({ events, packages, churches, initialBlasts 
             <p className="rounded-lg border border-error/30 bg-error/5 px-4 py-3 text-xs text-error">{error}</p>
           )}
           {sent && (
-            <p className="rounded-lg border border-success/30 bg-success/5 px-4 py-3 text-xs text-success">
-              Sent to {sent.count} recipient{sent.count !== 1 ? 's' : ''} successfully.
-            </p>
+            <div className={`rounded-lg border px-4 py-3 text-xs space-y-1 ${sent.queued > 0 ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-success/30 bg-success/5 text-success'}`}>
+              <p className="font-medium">
+                {sent.queued > 0
+                  ? `Sent to ${sent.count} of ${sent.count + sent.queued} recipients. ${sent.queued} queued for tomorrow.`
+                  : `Sent to ${sent.count} recipient${sent.count !== 1 ? 's' : ''} successfully.`}
+              </p>
+              {sent.queued > 0 && (
+                <p>The daily limit (300) was reached. Go to History and click <strong>Continue sending</strong> tomorrow to reach the remaining {sent.queued}.</p>
+              )}
+              {sent.failed > 0 && <p className="text-error">{sent.failed} failed to send.</p>}
+            </div>
           )}
 
           {/* Subject */}
@@ -233,25 +275,29 @@ export default function BlastClient({ events, packages, churches, initialBlasts 
             </div>
 
             {/* Mode pills */}
-            <div className="mb-4 flex gap-2">
-              {(['filters', 'emails'] as RecipientMode[]).map((m) => (
+            <div className="mb-4 flex gap-2 flex-wrap">
+              {([
+                { key: 'filters', label: 'By filters' },
+                { key: 'pick',    label: 'Pick individually' },
+                { key: 'emails',  label: 'By email list' },
+              ] as { key: UIMode; label: string }[]).map((m) => (
                 <button
-                  key={m}
+                  key={m.key}
                   type="button"
-                  onClick={() => setRecipientMode(m)}
+                  onClick={() => setUiMode(m.key)}
                   className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-                    recipientMode === m
+                    uiMode === m.key
                       ? 'border-[#111111] bg-[#111111] text-white'
                       : 'border-[#E5E5E5] text-muted hover:border-[#999] hover:text-[#111111]'
                   }`}
                 >
-                  {m === 'filters' ? 'By filters' : 'By email list'}
+                  {m.label}
                 </button>
               ))}
             </div>
 
             {/* Filters panel */}
-            {recipientMode === 'filters' && (
+            {uiMode === 'filters' && (
               <div className="rounded-lg border border-[#E5E5E5] bg-[#fafafa] p-4 space-y-3">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1.5">
@@ -296,8 +342,104 @@ export default function BlastClient({ events, packages, churches, initialBlasts 
               </div>
             )}
 
+            {/* Pick individually panel */}
+            {uiMode === 'pick' && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="search"
+                    placeholder="Search name, email or church…"
+                    value={contactSearch}
+                    onChange={(e) => setContactSearch(e.target.value)}
+                    className="flex-1 h-8 rounded-btn border border-[#E5E5E5] bg-white px-3 text-xs text-[#111111] placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-[#111111] focus:border-transparent"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setPickedEmails((prev) => {
+                      const next = new Set(prev)
+                      filteredContacts.forEach((c) => next.add(c.email))
+                      return next
+                    })}
+                    className="shrink-0 rounded border border-[#E5E5E5] px-2 py-1 text-xs text-muted hover:border-[#999] hover:text-[#111111] transition-colors"
+                  >
+                    Select all
+                  </button>
+                  {pickedEmails.size > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setPickedEmails(new Set())}
+                      className="shrink-0 rounded border border-[#E5E5E5] px-2 py-1 text-xs text-error hover:border-error/40 transition-colors"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                <div className="rounded-lg border border-[#E5E5E5] overflow-hidden">
+                  <div className="max-h-72 overflow-y-auto divide-y divide-[#E5E5E5]">
+                    {filteredContacts.length === 0 ? (
+                      <p className="px-4 py-6 text-center text-xs text-muted">No matches</p>
+                    ) : filteredContacts.map((c, idx) => {
+                      const checked = pickedEmails.has(c.email)
+                      const isQueued = idx >= 300
+                      const showDivider = idx === 300
+                      return (
+                        <div key={c.email}>
+                          {showDivider && (
+                            <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 border-y border-amber-200">
+                              <span className="text-[10px] font-semibold uppercase tracking-widest text-amber-600">Daily limit — selections below queue for tomorrow</span>
+                            </div>
+                          )}
+                          <label
+                            className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors ${
+                              isQueued && checked
+                                ? 'bg-amber-50'
+                                : checked
+                                  ? 'bg-[#fafafa]'
+                                  : isQueued
+                                    ? 'hover:bg-amber-50/50'
+                                    : 'hover:bg-[#fafafa]'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => {
+                                setPickedEmails((prev) => {
+                                  const next = new Set(prev)
+                                  checked ? next.delete(c.email) : next.add(c.email)
+                                  return next
+                                })
+                              }}
+                              className="size-4 shrink-0 rounded border-[#E5E5E5] accent-[#111111]"
+                            />
+                            <span className={`mt-0.5 size-1.5 shrink-0 rounded-full ${STATUS_DOT[c.payment_status] ?? 'bg-[#ccc]'}`} />
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-xs font-medium truncate ${isQueued ? 'text-amber-700' : 'text-[#111111]'}`}>{c.full_name}</p>
+                              <p className={`text-[11px] truncate ${isQueued ? 'text-amber-500' : 'text-muted'}`}>{c.email} · {c.gms_church}</p>
+                            </div>
+                            {isQueued && <span className="shrink-0 text-[9px] font-semibold uppercase text-amber-500 tracking-wide">Tomorrow</span>}
+                          </label>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <div className="border-t border-[#E5E5E5] bg-[#fafafa] px-3 py-2 flex items-center justify-between">
+                    {pickedEmails.size === 0 ? (
+                      <p className="text-xs text-muted">None selected</p>
+                    ) : pickedEmails.size <= 300 ? (
+                      <p className="text-xs font-medium text-[#111111]">{pickedEmails.size} selected &mdash; all send today</p>
+                    ) : (
+                      <p className="text-xs font-medium text-[#111111]">
+                        300 send today &middot; <span className="text-amber-600">{pickedEmails.size - 300} queued for tomorrow</span>
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Email list panel */}
-            {recipientMode === 'emails' && (
+            {uiMode === 'emails' && (
               <div className="space-y-2">
                 <textarea
                   value={emailInput}
@@ -480,8 +622,47 @@ export default function BlastClient({ events, packages, churches, initialBlasts 
                           </p>
                         )}
                         <p className="mt-1 text-xs text-muted">
-                          {blast.recipient_count} recipient{blast.recipient_count !== 1 ? 's' : ''} · {formatDateTime(blast.sent_at)}
+                          {blast.recipient_count} sent
+                          {blast.status === 'partial' && blast.queued_emails && (
+                            <span className="text-amber-600"> · {blast.queued_emails.length} queued</span>
+                          )}
+                          {' · '}{formatDateTime(blast.sent_at)}
                         </p>
+                        {blast.status === 'partial' && blast.queued_emails && (
+                          <div className="mt-2 space-y-1">
+                            {continueError[blast.id] && (
+                              <p className="text-xs text-error">{continueError[blast.id]}</p>
+                            )}
+                            {continueResult[blast.id] && (
+                              <p className="text-xs text-success font-medium">
+                                Sent {continueResult[blast.id].sent} more.
+                                {continueResult[blast.id].queued > 0 && ` ${continueResult[blast.id].queued} still queued — continue tomorrow.`}
+                              </p>
+                            )}
+                            {!continueResult[blast.id] && (
+                              <button
+                                type="button"
+                                disabled={continuing === blast.id}
+                                onClick={async () => {
+                                  setContinuing(blast.id)
+                                  setContinueError((prev) => ({ ...prev, [blast.id]: '' }))
+                                  const res = await continueEmailBlast(blast.id)
+                                  setContinuing(null)
+                                  if (res.error) {
+                                    setContinueError((prev) => ({ ...prev, [blast.id]: res.error! }))
+                                    return
+                                  }
+                                  setContinueResult((prev) => ({ ...prev, [blast.id]: { sent: res.sent, queued: res.queued } }))
+                                  const { getEmailBlasts } = await import('@/app/dashboard/blast/actions')
+                                  setBlasts(await getEmailBlasts())
+                                }}
+                                className="rounded border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-800 hover:bg-amber-100 disabled:opacity-50 transition-colors"
+                              >
+                                {continuing === blast.id ? 'Sending…' : `Continue sending (${blast.queued_emails.length} remaining)`}
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   )

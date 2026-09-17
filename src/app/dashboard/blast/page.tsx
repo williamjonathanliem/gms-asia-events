@@ -19,14 +19,24 @@ export default async function BlastPage() {
   const [
     { data: eventsData },
     { data: packagesData },
+    { data: contactsData },
     churches,
     blasts,
   ] = await Promise.all([
     supabase.from('events').select('id, name, date').order('date', { ascending: false }),
     supabase.from('packages').select('id, name, event_id').order('name'),
+    supabase.from('registrations').select('full_name, email, gms_church, payment_status, events(name)').order('full_name'),
     getGlobalChurches(),
     getEmailBlasts(),
   ])
+
+  const allContacts = (contactsData ?? []).map((r: any) => ({
+    full_name:      r.full_name as string,
+    email:          r.email as string,
+    gms_church:     r.gms_church as string,
+    payment_status: r.payment_status as string,
+    event_name:     (r.events?.name ?? '') as string,
+  }))
 
   return (
     <div className="min-h-screen">
@@ -42,6 +52,7 @@ export default async function BlastPage() {
           packages={packagesData ?? []}
           churches={churches}
           initialBlasts={blasts}
+          allContacts={allContacts}
         />
       </div>
     </div>
