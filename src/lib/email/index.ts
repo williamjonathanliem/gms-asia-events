@@ -1,4 +1,3 @@
-import QRCode from 'qrcode'
 import { getTransporter, FROM } from './transporter'
 import {
   confirmationTemplate,
@@ -22,19 +21,13 @@ type EventSummary = Pick<
   | 'early_bird_end_date'
 >
 
-async function makeQR(token: string): Promise<Buffer> {
-  return QRCode.toBuffer(token, {
-    width: 400,
-    margin: 2,
-    color: { dark: '#111111', light: '#FFFFFF' },
-  })
+function appUrl() {
+  return process.env.NEXT_PUBLIC_APP_URL ?? 'https://gms-asia-events.vercel.app'
 }
 
-const qrAttachment = (buffer: Buffer) => ({
-  filename: 'qr-code.png',
-  content: buffer,
-  cid: 'qr-code',
-})
+export function qrCodeUrl(token: string) {
+  return `${appUrl()}/api/qr/${token}`
+}
 
 // ── Sent immediately on registration (no QR yet — pending review) ────
 export async function sendConfirmationEmail(
@@ -51,7 +44,6 @@ export async function sendConfirmationEmail(
     to: reg.email,
     subject,
     html: confirmationTemplate(reg, pkg, event, pricing),
-    // No QR attachment — QR is only sent once payment is verified
   })
 }
 
@@ -62,7 +54,6 @@ export async function sendVerifiedEmail(
   event: EventSummary,
   pricing?: EmailPricing
 ) {
-  const qr = await makeQR(reg.qr_token)
   const subject = pricing?.is_early_bird
     ? `Registration Confirmed (Early Bird) — ${event.name}`
     : `Registration Confirmed — ${event.name}`
@@ -70,8 +61,7 @@ export async function sendVerifiedEmail(
     from: FROM(),
     to: reg.email,
     subject,
-    html: verifiedTemplate(reg, pkg, event, pricing),
-    attachments: [qrAttachment(qr)],
+    html: verifiedTemplate(reg, pkg, event, pricing, qrCodeUrl(reg.qr_token)),
   })
 }
 

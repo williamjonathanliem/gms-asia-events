@@ -195,24 +195,14 @@ export function verifiedTemplate(
   reg: RegSummary,
   pkg: PkgSummary,
   event: EventSummary,
-  pricing?: EmailPricing
+  pricing?: EmailPricing,
+  qrUrl?: string
 ) {
-  const body = `
-    <p style="margin:0 0 6px;font-size:15px;font-weight:600;color:#111111;">Hi ${reg.full_name},</p>
-    <p style="margin:0 0 24px;font-size:13px;color:#6B6B6B;line-height:1.6;">
-      Your payment for <strong style="color:#111111;">${event.name}</strong> has been
-      verified. Your registration is confirmed — we look forward to seeing you on
-      ${formatDateRange(event.date, event.end_date)}.
-    </p>
-
-    ${pricing?.is_early_bird ? earlyBirdNotice(event, pricing) : ''}
-    ${registrationBlock(reg, pkg, event.currency, pricing)}
-
-    <!-- QR Code -->
-    <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #E5E5E5;border-radius:8px;margin-bottom:24px;">
+  const qrBlock = qrUrl
+    ? `<table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #E5E5E5;border-radius:8px;margin-bottom:24px;">
       <tr>
         <td align="center" style="padding:24px 24px 12px;">
-          <img src="cid:qr-code" width="180" height="180" alt="QR Code"
+          <img src="${qrUrl}" width="180" height="180" alt="QR Code"
             style="display:block;border-radius:4px;" />
         </td>
       </tr>
@@ -224,7 +214,20 @@ export function verifiedTemplate(
           </p>
         </td>
       </tr>
-    </table>
+    </table>`
+    : ''
+
+  const body = `
+    <p style="margin:0 0 6px;font-size:15px;font-weight:600;color:#111111;">Hi ${reg.full_name},</p>
+    <p style="margin:0 0 24px;font-size:13px;color:#6B6B6B;line-height:1.6;">
+      Your payment for <strong style="color:#111111;">${event.name}</strong> has been
+      verified. Your registration is confirmed — we look forward to seeing you on
+      ${formatDateRange(event.date, event.end_date)}.
+    </p>
+
+    ${pricing?.is_early_bird ? earlyBirdNotice(event, pricing) : ''}
+    ${registrationBlock(reg, pkg, event.currency, pricing)}
+    ${qrBlock}
 
     <p style="margin:0;font-size:12px;color:#6B6B6B;line-height:1.6;">
       Please arrive at <strong style="color:#111111;">${event.location}</strong> on

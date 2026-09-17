@@ -58,6 +58,8 @@ const DEFAULT_FILTERS: BlastFilters = {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
+type TabKey = 'compose' | 'history'
+
 function parseEmails(raw: string): string[] {
   return raw
     .split(/[\n,;]+/)
@@ -66,7 +68,8 @@ function parseEmails(raw: string): string[] {
 }
 
 export default function BlastClient({ events, packages, churches, initialBlasts }: Props) {
-  const [tab, setTab] = useState<'compose' | 'history'>('compose')
+  const [tab, setTab] = useState<TabKey>('compose')
+
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
   const [recipientMode, setRecipientMode] = useState<RecipientMode>('filters')
@@ -172,23 +175,28 @@ export default function BlastClient({ events, packages, churches, initialBlasts 
     <div className="space-y-0">
       {/* Tabs */}
       <div className="flex border-b border-[#E5E5E5]">
-        {(['compose', 'history'] as const).map((t) => (
+        {(
+          [
+            { key: 'compose' as const, label: 'Compose' },
+            { key: 'history' as const, label: `History (${blasts.length})` },
+          ]
+        ).map(({ key, label }) => (
           <button
-            key={t}
+            key={key}
             type="button"
-            onClick={() => setTab(t)}
-            className={`border-b-2 px-1 pb-3 pt-3 text-xs font-medium capitalize transition-colors mr-6 ${
-              tab === t
+            onClick={() => setTab(key)}
+            className={`border-b-2 px-1 pb-3 pt-3 text-xs font-medium transition-colors mr-6 ${
+              tab === key
                 ? 'border-[#111111] text-[#111111]'
                 : 'border-transparent text-muted hover:text-[#111111]'
             }`}
           >
-            {t === 'history' ? `History (${blasts.length})` : 'Compose'}
+            {label}
           </button>
         ))}
       </div>
 
-      {/* ”” Compose ”” */}
+      {/* "" Compose "" */}
       {tab === 'compose' && (
         <div className="space-y-6 pt-6">
           {error && (
@@ -196,7 +204,7 @@ export default function BlastClient({ events, packages, churches, initialBlasts 
           )}
           {sent && (
             <p className="rounded-lg border border-success/30 bg-success/5 px-4 py-3 text-xs text-success">
-              œ“ Sent to {sent.count} recipient{sent.count !== 1 ? 's' : ''} successfully.
+              œ" Sent to {sent.count} recipient{sent.count !== 1 ? 's' : ''} successfully.
             </p>
           )}
 
@@ -321,6 +329,24 @@ export default function BlastClient({ events, packages, churches, initialBlasts 
             )}
           </div>
 
+          {/* Keywords */}
+          <div className="rounded-lg border border-[#E5E5E5] bg-[#fafafa] px-4 py-3 space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted">Available keywords</p>
+            <div className="flex items-start gap-3">
+              <button
+                type="button"
+                onClick={() => setBody((prev) => prev.replace('</p>', ' {{QR}}</p>') || '<p>{{QR}}</p>')}
+                className="shrink-0 rounded border border-[#E5E5E5] bg-white px-2 py-0.5 font-mono text-[11px] text-[#111111] hover:border-[#999] transition-colors"
+                title="Click to insert"
+              >
+                {'{{QR}}'}
+              </button>
+              <p className="text-xs text-muted leading-relaxed">
+                Embeds each recipient&apos;s unique QR code inline in the email. Recipients without a verified registration receive the email without it.
+              </p>
+            </div>
+          </div>
+
           {/* Body */}
           <div>
             <Label required>Message</Label>
@@ -349,7 +375,7 @@ export default function BlastClient({ events, packages, churches, initialBlasts 
         </div>
       )}
 
-      {/* ”” History ”” */}
+      {/* "" History "" */}
       {tab === 'history' && (
         <div className="pt-6 space-y-4">
           {blasts.length === 0 ? (
@@ -389,7 +415,7 @@ export default function BlastClient({ events, packages, churches, initialBlasts 
                   <p className="text-sm font-medium text-error">
                     Delete {selected.size === 1 ? 'this blast' : `these ${selected.size} blasts`}?
                   </p>
-                  <p className="text-xs text-muted">This removes them from history only ” emails already sent are not recalled.</p>
+                  <p className="text-xs text-muted">This removes them from history only " emails already sent are not recalled.</p>
                   {deleteError && <p className="text-xs text-error">{deleteError}</p>}
                   <div className="flex gap-2">
                     <button

@@ -3,7 +3,9 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { getCurrentStaffUser } from '@/lib/supabase/auth'
 import { getTransporter, FROM } from '@/lib/email/transporter'
+import { sendVerifiedEmail } from '@/lib/email'
 import { revalidatePath } from 'next/cache'
+import { qrCodeUrl } from '@/lib/email'
 
 export interface BlastFilters {
   eventId: string | 'all'
@@ -36,9 +38,11 @@ async function requireAdminOrAbove() {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
+type Recipient = { email: string; full_name: string; qr_token?: string | null }
+
 // ── Build recipient query from filters ────────────────────────
-function buildQuery(supabase: ReturnType<typeof createServiceClient>, filters: BlastFilters) {
-  let q = supabase.from('registrations').select('email, full_name')
+function buildQuery(supabase: ReturnType<typeof createServiceClient>, filters: BlastFilters, includeQR = false) {
+  let q = supabase.from('registrations').select('email, full_name, qr_token')
   if (filters.eventId   !== 'all') q = q.eq('event_id',       filters.eventId)
   if (filters.status    !== 'all') q = q.eq('payment_status', filters.status)
   if (filters.church    !== 'all') q = q.eq('gms_church',     filters.church)
@@ -46,7 +50,7 @@ function buildQuery(supabase: ReturnType<typeof createServiceClient>, filters: B
   return q
 }
 
-function dedup(rows: { email: string; full_name?: string | null }[]): { email: string; full_name: string }[] {
+function dedup(rows: { email: string; full_name?: string | null; qr_token?: string | null }[]): Recipient[] {
   const seen = new Set<string>()
   return rows
     .filter((r) => {
@@ -54,8 +58,9 @@ function dedup(rows: { email: string; full_name?: string | null }[]): { email: s
       seen.add(r.email)
       return true
     })
-    .map((r) => ({ email: r.email, full_name: r.full_name ?? '' }))
+    .map((r) => ({ email: r.email, full_name: r.full_name ?? '', qr_token: r.qr_token }))
 }
+
 
 // ── Preview recipient count ───────────────────────────────────
 export async function previewBlastRecipients(
@@ -80,6 +85,8 @@ export async function previewBlastRecipients(
   }
 }
 
+const QR_TAG = '{{QR}}'
+
 // ── Send blast ────────────────────────────────────────────────
 export async function sendEmailBlast(
   subject: string,
@@ -93,8 +100,9 @@ export async function sendEmailBlast(
     if (!subject.trim()) return { sent: 0, error: 'Subject is required' }
     if (!bodyHtml.trim() || bodyHtml === '<p></p>') return { sent: 0, error: 'Message body is required' }
 
+    const hasQR = bodyHtml.includes(QR_TAG)
     const supabase = createServiceClient()
-    let recipients: { email: string; full_name: string }[] = []
+    let recipients: Recipient[] = []
 
     if (mode === 'emails') {
       const valid = Array.from(new Set(
@@ -103,24 +111,47 @@ export async function sendEmailBlast(
           .filter((e) => EMAIL_RE.test(e))
       ))
       if (valid.length === 0) return { sent: 0, error: 'No valid email addresses entered' }
-      recipients = valid.map((email) => ({ email, full_name: '' }))
+
+      if (hasQR) {
+        const { data: regs } = await supabase
+          .from('registrations')
+          .select('email, qr_token')
+          .in('email', valid)
+          .eq('payment_status', 'verified')
+        const tokenMap = new Map((regs ?? []).map((r) => [r.email, r.qr_token]))
+        recipients = valid.map((email) => ({ email, full_name: '', qr_token: tokenMap.get(email) }))
+      } else {
+        recipients = valid.map((email) => ({ email, full_name: '' }))
+      }
     } else {
-      const { data, error } = await buildQuery(supabase, filters)
+      const { data, error } = await buildQuery(supabase, filters, hasQR)
       if (error) return { sent: 0, error: error.message }
       recipients = dedup(data ?? [])
       if (recipients.length === 0) return { sent: 0, error: 'No recipients match these filters' }
     }
 
-    const html = emailLayout(subject, bodyHtml)
     const transporter = getTransporter()
     const from = FROM()
-
-    // Send in batches of 20
     const BATCH = 20
+
     for (let i = 0; i < recipients.length; i += BATCH) {
       const batch = recipients.slice(i, i + BATCH)
       await Promise.all(
-        batch.map((r) => transporter.sendMail({ from, to: r.email, subject, html }))
+        batch.map(async (r) => {
+          let body = bodyHtml
+          if (hasQR) {
+            const img = r.qr_token
+              ? `<img src="${qrCodeUrl(r.qr_token)}" width="220" height="220" alt="Your QR Code" style="display:block;margin:16px auto;border-radius:8px;" />`
+              : ''
+            body = body.replace(QR_TAG, img)
+          }
+          await transporter.sendMail({
+            from,
+            to: r.email,
+            subject,
+            html: emailLayout(subject, body),
+          })
+        })
       )
     }
 
@@ -139,6 +170,69 @@ export async function sendEmailBlast(
     return { sent: recipients.length }
   } catch (e: any) {
     return { sent: 0, error: e.message }
+  }
+}
+
+// ── Resend QR codes ───────────────────────────────────────────
+export async function resendQRCodes(
+  eventId: string
+): Promise<{ sent: number; failed: number; error?: string }> {
+  try {
+    await requireAdminOrAbove()
+    const supabase = createServiceClient()
+
+    let query = supabase
+      .from('registrations')
+      .select(
+        `full_name, email, gms_church, nij, qr_token, amount_paid, is_early_bird,
+         packages(name, price, toolkit_items),
+         events(name, date, end_date, location, currency, early_bird_enabled, early_bird_auto_change, early_bird_end_date)`
+      )
+      .eq('payment_status', 'verified')
+
+    if (eventId !== 'all') query = query.eq('event_id', eventId)
+
+    const { data, error } = await query
+    if (error) return { sent: 0, failed: 0, error: error.message }
+
+    const rows = data ?? []
+    if (rows.length === 0) return { sent: 0, failed: 0, error: 'No verified registrations found for this event' }
+
+    // QR generation is memory-heavy — process in small batches
+    const BATCH = 5
+    let sent = 0
+    let failed = 0
+
+    for (let i = 0; i < rows.length; i += BATCH) {
+      const batch = rows.slice(i, i + BATCH)
+      await Promise.all(
+        batch.map(async (reg) => {
+          try {
+            await sendVerifiedEmail(
+              {
+                full_name: reg.full_name,
+                email:     reg.email,
+                gms_church: reg.gms_church,
+                nij:       reg.nij,
+                qr_token:  reg.qr_token,
+              },
+              reg.packages as any,
+              reg.events   as any,
+              reg.amount_paid != null
+                ? { amount_paid: Number(reg.amount_paid), is_early_bird: reg.is_early_bird }
+                : undefined
+            )
+            sent++
+          } catch {
+            failed++
+          }
+        })
+      )
+    }
+
+    return { sent, failed }
+  } catch (e: any) {
+    return { sent: 0, failed: 0, error: e.message }
   }
 }
 
