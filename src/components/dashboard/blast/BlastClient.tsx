@@ -204,7 +204,7 @@ export default function BlastClient({ events, packages, churches, initialBlasts 
           )}
           {sent && (
             <p className="rounded-lg border border-success/30 bg-success/5 px-4 py-3 text-xs text-success">
-              œ" Sent to {sent.count} recipient{sent.count !== 1 ? 's' : ''} successfully.
+              Sent to {sent.count} recipient{sent.count !== 1 ? 's' : ''} successfully.
             </p>
           )}
 
@@ -415,7 +415,7 @@ export default function BlastClient({ events, packages, churches, initialBlasts 
                   <p className="text-sm font-medium text-error">
                     Delete {selected.size === 1 ? 'this blast' : `these ${selected.size} blasts`}?
                   </p>
-                  <p className="text-xs text-muted">This removes them from history only " emails already sent are not recalled.</p>
+                  <p className="text-xs text-muted">This removes them from history only &mdash; emails already sent are not recalled.</p>
                   {deleteError && <p className="text-xs text-error">{deleteError}</p>}
                   <div className="flex gap-2">
                     <button
