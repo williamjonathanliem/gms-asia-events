@@ -14,7 +14,7 @@ export async function GET(
     color: { dark: '#111111', light: '#FFFFFF' },
   })
 
-  return new NextResponse(buffer, {
+  return new NextResponse(new Uint8Array(buffer), {
     headers: {
       'Content-Type': 'image/png',
       'Cache-Control': 'public, max-age=31536000, immutable',
