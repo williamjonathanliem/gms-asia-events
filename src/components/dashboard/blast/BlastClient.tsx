@@ -472,20 +472,34 @@ export default function BlastClient({ events, packages, churches, initialBlasts,
           </div>
 
           {/* Keywords */}
-          <div className="rounded-lg border border-[#E5E5E5] bg-[#fafafa] px-4 py-3 space-y-2">
+          <div className="rounded-lg border border-[#E5E5E5] bg-[#fafafa] px-4 py-3 space-y-3">
             <p className="text-xs font-semibold uppercase tracking-widest text-muted">Available keywords</p>
-            <div className="flex items-start gap-3">
-              <button
-                type="button"
-                onClick={() => setBody((prev) => prev.replace('</p>', ' {{QR}}</p>') || '<p>{{QR}}</p>')}
-                className="shrink-0 rounded border border-[#E5E5E5] bg-white px-2 py-0.5 font-mono text-[11px] text-[#111111] hover:border-[#999] transition-colors"
-                title="Click to insert"
-              >
-                {'{{QR}}'}
-              </button>
-              <p className="text-xs text-muted leading-relaxed">
-                Embeds each recipient&apos;s unique QR code inline in the email. Recipients without a verified registration receive the email without it.
-              </p>
+            <div className="space-y-2">
+              {([
+                { tag: '{{NAME}}',     desc: "Recipient's full name" },
+                { tag: '{{CHURCH}}',   desc: "Recipient's church" },
+                { tag: '{{EVENT}}',    desc: 'Event name' },
+                { tag: '{{DATE}}',     desc: 'Event date range' },
+                { tag: '{{LOCATION}}', desc: 'Event venue / location' },
+                { tag: '{{PACKAGE}}',  desc: 'Package name and price' },
+                { tag: '{{TOOLKIT}}',  desc: 'Toolkit items list' },
+                { tag: '{{QR}}',       desc: 'Embeds the unique QR code image. Recipients without a verified registration receive the email without it.' },
+              ] as { tag: string; desc: string }[]).map(({ tag, desc }) => (
+                <div key={tag} className="flex items-start gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setBody((prev) => {
+                      const appended = prev.replace('</p>', ` ${tag}</p>`)
+                      return appended !== prev ? appended : `${prev}<p>${tag}</p>`
+                    })}
+                    className="shrink-0 rounded border border-[#E5E5E5] bg-white px-2 py-0.5 font-mono text-[11px] text-[#111111] hover:border-[#999] transition-colors"
+                    title="Click to insert"
+                  >
+                    {tag}
+                  </button>
+                  <p className="text-xs text-muted leading-relaxed">{desc}</p>
+                </div>
+              ))}
             </div>
           </div>
 
@@ -510,9 +524,11 @@ export default function BlastClient({ events, packages, churches, initialBlasts,
                 </svg>
                 Sending
               </span>
-            ) : recipientCount !== null && recipientCount > 0
-              ? `Send to ${recipientCount} recipient${recipientCount !== 1 ? 's' : ''}`
-              : 'Send'}
+            ) : uiMode === 'pick' && pickedEmails.size > 300
+              ? `Send 300 now · queue ${pickedEmails.size - 300} for tomorrow`
+              : recipientCount !== null && recipientCount > 0
+                ? `Send to ${recipientCount} recipient${recipientCount !== 1 ? 's' : ''}`
+                : 'Send'}
           </button>
         </div>
       )}

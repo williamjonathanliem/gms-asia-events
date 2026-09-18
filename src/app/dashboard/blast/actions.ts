@@ -6,6 +6,7 @@ import { getTransporter, FROM } from '@/lib/email/transporter'
 import { sendVerifiedEmail } from '@/lib/email'
 import { revalidatePath } from 'next/cache'
 import { qrCodeUrl } from '@/lib/email'
+import { formatDateRange, formatCurrency } from '@/lib/utils'
 
 export interface BlastFilters {
   eventId: string | 'all'
@@ -40,11 +41,30 @@ async function requireAdminOrAbove() {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-type Recipient = { email: string; full_name: string; qr_token?: string | null }
+type Recipient = {
+  email: string
+  full_name: string
+  qr_token?: string | null
+  gms_church?: string | null
+  event_name?: string | null
+  event_date?: string | null
+  event_end_date?: string | null
+  event_location?: string | null
+  event_currency?: string | null
+  package_name?: string | null
+  package_price?: number | null
+  toolkit_items?: string[] | null
+}
+
+const REG_SELECT = `
+  email, full_name, qr_token, gms_church,
+  events(name, date, end_date, location, currency),
+  packages(name, price, toolkit_items)
+`
 
 // ── Build recipient query from filters ────────────────────────
-function buildQuery(supabase: ReturnType<typeof createServiceClient>, filters: BlastFilters, includeQR = false) {
-  let q = supabase.from('registrations').select('email, full_name, qr_token')
+function buildQuery(supabase: ReturnType<typeof createServiceClient>, filters: BlastFilters) {
+  let q = supabase.from('registrations').select(REG_SELECT)
   if (filters.eventId   !== 'all') q = q.eq('event_id',       filters.eventId)
   if (filters.status    !== 'all') q = q.eq('payment_status', filters.status)
   if (filters.church    !== 'all') q = q.eq('gms_church',     filters.church)
@@ -52,7 +72,24 @@ function buildQuery(supabase: ReturnType<typeof createServiceClient>, filters: B
   return q
 }
 
-function dedup(rows: { email: string; full_name?: string | null; qr_token?: string | null }[]): Recipient[] {
+function mapRow(r: any): Recipient {
+  return {
+    email:          r.email,
+    full_name:      r.full_name ?? '',
+    qr_token:       r.qr_token,
+    gms_church:     r.gms_church,
+    event_name:     r.events?.name,
+    event_date:     r.events?.date,
+    event_end_date: r.events?.end_date,
+    event_location: r.events?.location,
+    event_currency: r.events?.currency,
+    package_name:   r.packages?.name,
+    package_price:  r.packages?.price,
+    toolkit_items:  r.packages?.toolkit_items,
+  }
+}
+
+function dedup(rows: any[]): Recipient[] {
   const seen = new Set<string>()
   return rows
     .filter((r) => {
@@ -60,7 +97,7 @@ function dedup(rows: { email: string; full_name?: string | null; qr_token?: stri
       seen.add(r.email)
       return true
     })
-    .map((r) => ({ email: r.email, full_name: r.full_name ?? '', qr_token: r.qr_token }))
+    .map(mapRow)
 }
 
 
@@ -87,8 +124,33 @@ export async function previewBlastRecipients(
   }
 }
 
-const QR_TAG = '{{QR}}'
 const DAILY_LIMIT = 300
+
+function applyTags(bodyHtml: string, subjectRaw: string, r: Recipient): { body: string; subject: string } {
+  const dateStr = r.event_date ? formatDateRange(r.event_date, r.event_end_date) : ''
+  const priceStr = r.package_price != null
+    ? formatCurrency(r.package_price, r.event_currency ?? 'JPY')
+    : ''
+  const packageStr = [r.package_name, priceStr].filter(Boolean).join(' — ')
+  const toolkitStr = r.toolkit_items?.length
+    ? r.toolkit_items.map((i) => `<p style="margin:0 0 4px;font-size:13px;color:#6B6B6B;">· ${i}</p>`).join('')
+    : ''
+  const qrImg = r.qr_token
+    ? `<img src="${qrCodeUrl(r.qr_token)}" width="220" height="220" alt="Your QR Code" style="display:block;margin:16px auto;border-radius:8px;" />`
+    : ''
+
+  const replace = (s: string) => s
+    .replace(/\{\{QR\}\}/g,       qrImg)
+    .replace(/\{\{NAME\}\}/g,     r.full_name ?? '')
+    .replace(/\{\{CHURCH\}\}/g,   r.gms_church ?? '')
+    .replace(/\{\{EVENT\}\}/g,    r.event_name ?? '')
+    .replace(/\{\{DATE\}\}/g,     dateStr)
+    .replace(/\{\{LOCATION\}\}/g, r.event_location ?? '')
+    .replace(/\{\{PACKAGE\}\}/g,  packageStr)
+    .replace(/\{\{TOOLKIT\}\}/g,  toolkitStr)
+
+  return { body: replace(bodyHtml), subject: replace(subjectRaw) }
+}
 
 async function sendBatch(
   recipients: Recipient[],
@@ -97,7 +159,6 @@ async function sendBatch(
 ): Promise<{ sent: number; failed: number }> {
   const transporter = getTransporter()
   const from = FROM()
-  const hasQR = bodyHtml.includes(QR_TAG)
   const BATCH = 20
   let sent = 0
   let failed = 0
@@ -107,14 +168,8 @@ async function sendBatch(
     await Promise.all(
       batch.map(async (r) => {
         try {
-          let body = bodyHtml
-          if (hasQR) {
-            const img = r.qr_token
-              ? `<img src="${qrCodeUrl(r.qr_token)}" width="220" height="220" alt="Your QR Code" style="display:block;margin:16px auto;border-radius:8px;" />`
-              : ''
-            body = body.replace(QR_TAG, img)
-          }
-          await transporter.sendMail({ from, to: r.email, subject, html: emailLayout(subject, body) })
+          const { body, subject: subj } = applyTags(bodyHtml, subject, r)
+          await transporter.sendMail({ from, to: r.email, subject: subj, html: emailLayout(subj, body) })
           sent++
         } catch {
           failed++
@@ -138,7 +193,6 @@ export async function sendEmailBlast(
     if (!subject.trim()) return { sent: 0, failed: 0, queued: 0, error: 'Subject is required' }
     if (!bodyHtml.trim() || bodyHtml === '<p></p>') return { sent: 0, failed: 0, queued: 0, error: 'Message body is required' }
 
-    const hasQR = bodyHtml.includes(QR_TAG)
     const supabase = createServiceClient()
     let allRecipients: Recipient[] = []
 
@@ -148,17 +202,13 @@ export async function sendEmailBlast(
       ))
       if (valid.length === 0) return { sent: 0, failed: 0, queued: 0, error: 'No valid email addresses entered' }
 
-      if (hasQR) {
-        const { data: regs } = await supabase
-          .from('registrations').select('email, qr_token')
-          .in('email', valid).eq('payment_status', 'verified')
-        const tokenMap = new Map((regs ?? []).map((r) => [r.email, r.qr_token]))
-        allRecipients = valid.map((email) => ({ email, full_name: '', qr_token: tokenMap.get(email) }))
-      } else {
-        allRecipients = valid.map((email) => ({ email, full_name: '' }))
-      }
+      const { data: regs } = await supabase
+        .from('registrations').select(REG_SELECT)
+        .in('email', valid)
+      const regMap = new Map((regs ?? []).map((r: any) => [r.email, mapRow(r)]))
+      allRecipients = valid.map((email) => regMap.get(email) ?? { email, full_name: email })
     } else {
-      const { data, error } = await buildQuery(supabase, filters, hasQR)
+      const { data, error } = await buildQuery(supabase, filters)
       if (error) return { sent: 0, failed: 0, queued: 0, error: error.message }
       allRecipients = dedup(data ?? [])
       if (allRecipients.length === 0) return { sent: 0, failed: 0, queued: 0, error: 'No recipients match these filters' }
@@ -209,20 +259,14 @@ export async function continueEmailBlast(
     const queue: string[] = blast.queued_emails ?? []
     if (queue.length === 0) return { sent: 0, failed: 0, queued: 0, error: 'No queued recipients' }
 
-    const hasQR = (blast.body_html as string).includes(QR_TAG)
     const toSendEmails = queue.slice(0, DAILY_LIMIT)
     const remainingEmails = queue.slice(DAILY_LIMIT)
 
-    let recipients: Recipient[] = []
-    if (hasQR) {
-      const { data: regs } = await supabase
-        .from('registrations').select('email, qr_token')
-        .in('email', toSendEmails).eq('payment_status', 'verified')
-      const tokenMap = new Map((regs ?? []).map((r) => [r.email, r.qr_token]))
-      recipients = toSendEmails.map((email) => ({ email, full_name: '', qr_token: tokenMap.get(email) }))
-    } else {
-      recipients = toSendEmails.map((email) => ({ email, full_name: '' }))
-    }
+    const { data: regs } = await supabase
+      .from('registrations').select(REG_SELECT)
+      .in('email', toSendEmails)
+    const regMap = new Map((regs ?? []).map((r: any) => [r.email, mapRow(r)]))
+    const recipients: Recipient[] = toSendEmails.map((email) => regMap.get(email) ?? { email, full_name: email })
 
     const { sent, failed } = await sendBatch(recipients, blast.body_html, blast.subject)
 
