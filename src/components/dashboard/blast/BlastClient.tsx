@@ -71,43 +71,6 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 type TabKey = 'compose' | 'history'
 type UIMode = 'filters' | 'emails' | 'pick'
 
-const TEMPLATES: { label: string; subject: string; body: string }[] = [
-  {
-    label: 'H-10 Reminder',
-    subject: 'See you in 10 days — {{EVENT}}',
-    body: [
-      '<p>Hi <strong>{{NAME}}</strong>,</p>',
-      '<p>We\'re counting down — only <strong>10 days</strong> until <strong>{{EVENT}}</strong> on {{DATE}} at {{LOCATION}}. Here\'s a quick reminder of your registration and your QR code for entry.</p>',
-      '<p><strong>Your registration details</strong></p>',
-      '<p>Name: {{NAME}}<br>Church: {{CHURCH}}<br>Package: {{PACKAGE}}</p>',
-      '<p><strong>Toolkit items</strong><br>{{TOOLKIT}}</p>',
-      '<p><strong>Your QR Code</strong><br>Present this at the entrance and toolkit counter. Keep it private.</p>',
-      '{{QR}}',
-      '<p>We look forward to seeing you at <strong>{{LOCATION}}</strong> on {{DATE}}. If you have any questions, please contact your church coordinator.</p>',
-    ].join(''),
-  },
-  {
-    label: 'Day-of Reminder',
-    subject: 'Today is the day — {{EVENT}}',
-    body: [
-      '<p>Hi <strong>{{NAME}}</strong>,</p>',
-      '<p>Today is the day! <strong>{{EVENT}}</strong> starts today at <strong>{{LOCATION}}</strong>. Please bring your QR code below for entry and toolkit pickup.</p>',
-      '{{QR}}',
-      '<p>Name: {{NAME}}<br>Church: {{CHURCH}}<br>Package: {{PACKAGE}}</p>',
-      '<p>We\'ll see you there!</p>',
-    ].join(''),
-  },
-  {
-    label: 'General update',
-    subject: 'Update regarding {{EVENT}}',
-    body: [
-      '<p>Hi <strong>{{NAME}}</strong>,</p>',
-      '<p>We have an update for you regarding <strong>{{EVENT}}</strong> on {{DATE}} at {{LOCATION}}.</p>',
-      '<p>[Write your message here]</p>',
-      '<p>If you have any questions, please contact your church coordinator.</p>',
-    ].join(''),
-  },
-]
 
 const STATUS_DOT: Record<string, string> = {
   verified: 'bg-success',
@@ -127,7 +90,6 @@ export default function BlastClient({ events, packages, churches, initialBlasts,
 
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
-  const [showTemplates, setShowTemplates] = useState(false)
   const [uiMode, setUiMode] = useState<UIMode>('filters')
   const [filters, setFilters] = useState<BlastFilters>(DEFAULT_FILTERS)
   const [emailInput, setEmailInput] = useState('')
