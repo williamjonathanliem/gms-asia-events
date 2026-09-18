@@ -251,39 +251,6 @@ export default function BlastClient({ events, packages, churches, initialBlasts,
             </div>
           )}
 
-          {/* Templates */}
-          <div className="relative">
-            <div className="flex items-center justify-between mb-1">
-              <p className="text-xs font-semibold uppercase tracking-widest text-muted">Start from a template</p>
-              <button
-                type="button"
-                onClick={() => setShowTemplates((v) => !v)}
-                className="text-xs text-muted hover:text-[#111111] transition-colors"
-              >
-                {showTemplates ? 'Hide' : 'Show templates'}
-              </button>
-            </div>
-            {showTemplates && (
-              <div className="rounded-lg border border-[#E5E5E5] divide-y divide-[#E5E5E5]">
-                {TEMPLATES.map((t) => (
-                  <button
-                    key={t.label}
-                    type="button"
-                    onClick={() => {
-                      setSubject(t.subject)
-                      setBody(t.body)
-                      setShowTemplates(false)
-                    }}
-                    className="w-full text-left px-4 py-3 hover:bg-[#fafafa] transition-colors"
-                  >
-                    <p className="text-sm font-medium text-[#111111]">{t.label}</p>
-                    <p className="mt-0.5 text-xs text-muted truncate">{t.subject}</p>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
           {/* Subject */}
           <div>
             <Label htmlFor="blast-subject" required>Subject</Label>
