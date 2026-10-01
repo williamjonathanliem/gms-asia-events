@@ -8,6 +8,7 @@ import ExportButton from '@/components/dashboard/registrations/ExportButton'
 import WalkinDrawerWrapper from '@/components/dashboard/registrations/WalkinDrawerWrapper'
 import RefreshButton from '@/components/dashboard/registrations/RefreshButton'
 import RegistrationsSkeleton from '@/components/dashboard/registrations/RegistrationsSkeleton'
+import AllergensClient from '@/components/dashboard/allergens/AllergensClient'
 import { formatDateRange } from '@/lib/utils'
 import { Suspense } from 'react'
 import type { Metadata } from 'next'
@@ -31,6 +32,7 @@ interface SearchParams {
   page?: string
   /** `all` or a specific event id; omitted = active event (unscoped staff only) */
   event?: string
+  tab?: string         // 'allergens'
 }
 
 export default async function RegistrationsPage({
@@ -159,6 +161,31 @@ export default async function RegistrationsPage({
     }
   }
 
+  // ── Allergens tab data ───────────────────────────────────────
+  const activeTab = searchParams.tab ?? 'registrations'
+  let allergenRows: { full_name: string; email: string; gms_church: string; package_name: string; answer: string }[] = []
+
+  if (activeTab === 'allergens' && filterEventId && allergiesFieldId) {
+    const { data: aRegs } = await supabase
+      .from('registrations')
+      .select('full_name, email, gms_church, custom_answers, packages(name)')
+      .eq('event_id', filterEventId)
+      .eq('payment_status', 'verified')
+      .not(`custom_answers->>${allergiesFieldId}`, 'is', null)
+      .neq(`custom_answers->>${allergiesFieldId}`, '')
+      .order('full_name')
+
+    allergenRows = (aRegs ?? [])
+      .map((r: any) => ({
+        full_name:    r.full_name,
+        email:        r.email,
+        gms_church:   r.gms_church ?? '',
+        package_name: r.packages?.name ?? '',
+        answer:       (r.custom_answers?.[allergiesFieldId!] ?? '') as string,
+      }))
+      .filter((r) => r.answer.trim() !== '')
+  }
+
   let query = supabase
     .from('registrations')
     .select(
@@ -233,7 +260,9 @@ export default async function RegistrationsPage({
               {headerTitle}
               {headerDate ? ` · ${formatDateRange(headerDate, headerEndDate)}` : ''}
             </p>
-            <h1 className="text-lg font-semibold text-[#111111] sm:mt-1 sm:text-xl">Registrations</h1>
+            <h1 className="text-lg font-semibold text-[#111111] sm:mt-1 sm:text-xl">
+              {activeTab === 'allergens' ? 'Allergens' : 'Registrations'}
+            </h1>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
             <RefreshButton />
@@ -252,59 +281,92 @@ export default async function RegistrationsPage({
         </div>
       </div>
 
+      {/* Tab bar — only when a single event is selected and it has a dietary field */}
+      {allergiesFieldId && filterEventId && (
+        <div className="border-b border-[#E5E5E5] px-4 sm:px-8">
+          <div className="flex gap-0">
+            {[
+              { key: 'registrations', label: 'Registrations' },
+              { key: 'allergens',     label: 'Allergens'      },
+            ].map(({ key, label }) => (
+              <a
+                key={key}
+                href={`?${new URLSearchParams({ ...(searchParams.event ? { event: searchParams.event } : {}), tab: key === 'registrations' ? '' : key }).toString().replace(/tab=$/, '').replace(/&tab=$/, '')}`}
+                className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === key
+                    ? 'border-[#111111] text-[#111111]'
+                    : 'border-transparent text-muted hover:text-[#111111]'
+                }`}
+              >
+                {label}
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="px-4 py-5 space-y-6 sm:px-8 sm:py-6">
-        {/* Stat cards */}
-        {queryAllEvents ? (
-          <p className="text-sm text-muted">
-            Summary stats are per event. Choose one event in the filters to see totals, or stay on{' '}
-            <span className="font-medium text-[#111111]">All events</span> to search across every registration.
-          </p>
-        ) : filterEventId ? (
-          <StatCards eventId={filterEventId} />
+        {activeTab === 'allergens' ? (
+          <AllergensClient
+            allergenLabel={allergiesLabel}
+            rows={allergenRows}
+          />
         ) : (
-          <p className="text-sm text-muted">No active event found.</p>
+          <>
+            {/* Stat cards */}
+            {queryAllEvents ? (
+              <p className="text-sm text-muted">
+                Summary stats are per event. Choose one event in the filters to see totals, or stay on{' '}
+                <span className="font-medium text-[#111111]">All events</span> to search across every registration.
+              </p>
+            ) : filterEventId ? (
+              <StatCards eventId={filterEventId} />
+            ) : (
+              <p className="text-sm text-muted">No active event found.</p>
+            )}
+
+            {/* Search + filters */}
+            <Suspense>
+              <SearchFilters
+                eventFilterLocked={!!scopedEventId}
+                eventsForPicker={eventsForPicker}
+                activeEventId={scopedEventId ? null : activeEventId}
+                packages={packages.map((p) => ({ id: p.id, name: p.name }))}
+                allergiesFieldId={allergiesFieldId}
+                allergiesLabel={allergiesLabel}
+                churches={dynamicChurches}
+              />
+            </Suspense>
+
+            {/* Total count */}
+            <p className="text-xs text-muted">
+              {count ?? 0} registration{count !== 1 ? 's' : ''}
+              {searchParams.search ||
+              searchParams.status ||
+              searchParams.package ||
+              searchParams.church ||
+              searchParams.event ||
+              searchParams.payment ||
+              searchParams.location ||
+              searchParams.allergies
+                ? ' matching filters'
+                : ''}
+            </p>
+
+            {/* Table */}
+            <Suspense fallback={<RegistrationsSkeleton />}>
+              <RegistrationsClient
+                registrations={registrations}
+                total={count ?? 0}
+                page={page}
+                pageSize={PAGE_SIZE}
+                staffRole={staff?.role ?? 'scanner'}
+                showEventColumn={showEventColumn}
+                churches={dynamicChurches}
+              />
+            </Suspense>
+          </>
         )}
-
-        {/* Search + filters */}
-        <Suspense>
-          <SearchFilters
-            eventFilterLocked={!!scopedEventId}
-            eventsForPicker={eventsForPicker}
-            activeEventId={scopedEventId ? null : activeEventId}
-            packages={packages.map((p) => ({ id: p.id, name: p.name }))}
-            allergiesFieldId={allergiesFieldId}
-            allergiesLabel={allergiesLabel}
-            churches={dynamicChurches}
-          />
-        </Suspense>
-
-        {/* Total count */}
-        <p className="text-xs text-muted">
-          {count ?? 0} registration{count !== 1 ? 's' : ''}
-          {searchParams.search ||
-          searchParams.status ||
-          searchParams.package ||
-          searchParams.church ||
-          searchParams.event ||
-          searchParams.payment ||
-          searchParams.location ||
-          searchParams.allergies
-            ? ' matching filters'
-            : ''}
-        </p>
-
-        {/* Table */}
-        <Suspense fallback={<RegistrationsSkeleton />}>
-          <RegistrationsClient
-            registrations={registrations}
-            total={count ?? 0}
-            page={page}
-            pageSize={PAGE_SIZE}
-            staffRole={staff?.role ?? 'scanner'}
-            showEventColumn={showEventColumn}
-            churches={dynamicChurches}
-          />
-        </Suspense>
       </div>
     </div>
   )
