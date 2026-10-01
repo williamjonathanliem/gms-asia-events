@@ -23,9 +23,10 @@ interface Props {
   packages: Package[]
   eventPricing: EventPricing | null
   onClose: () => void
+  churches?: string[]
 }
 
-export default function WalkinDrawer({ eventId, packages, eventPricing, onClose }: Props) {
+export default function WalkinDrawer({ eventId, packages, eventPricing, onClose, churches = GMS_CHURCHES as unknown as string[] }: Props) {
   const ebEvent = eventPricing ?? {
     currency: 'IDR',
     early_bird_enabled: false,
@@ -149,7 +150,7 @@ export default function WalkinDrawer({ eventId, packages, eventPricing, onClose 
               className={fieldErrors.church ? 'border-error' : ''}
             >
               <option value="" disabled>Select branch</option>
-              {GMS_CHURCHES.map((c) => (
+              {churches.map((c) => (
                 <option key={c} value={c}>{c}</option>
               ))}
             </Select>

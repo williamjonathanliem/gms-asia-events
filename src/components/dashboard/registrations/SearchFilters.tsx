@@ -14,8 +14,6 @@ import { cn } from '@/lib/utils'
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
-const JAPAN_CHURCHES = ['GMS Tokyo', 'GMS Osaka', 'GMS Osaka Satellite']
-
 // Radix Select doesn't support value="". Use 'all' as sentinel internally.
 function FSel({
   value, onValueChange, className, children,
@@ -40,8 +38,6 @@ function FSel({
   )
 }
 
-const CHURCH_OPTIONS = ['All churches', ...GMS_CHURCHES] as string[]
-
 export interface SearchFiltersProps {
   eventFilterLocked?: boolean
   eventsForPicker?: { id: string; name: string; date: string; end_date?: string | null }[]
@@ -49,6 +45,7 @@ export interface SearchFiltersProps {
   packages?: { id: string; name: string }[]
   allergiesFieldId?: string | null
   allergiesLabel?: string
+  churches?: string[]
 }
 
 export default function SearchFilters({
@@ -58,7 +55,9 @@ export default function SearchFilters({
   packages = [],
   allergiesFieldId = null,
   allergiesLabel = 'Dietary / Allergies',
+  churches = GMS_CHURCHES as unknown as string[],
 }: SearchFiltersProps) {
+  const CHURCH_OPTIONS = ['All churches', ...churches]
   const router       = useRouter()
   const pathname     = usePathname()
   const searchParams = useSearchParams()

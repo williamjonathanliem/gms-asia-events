@@ -20,22 +20,45 @@ export default function SettingsClient({ initialChurches }: Props) {
   const [editingValue, setEditingValue] = useState('')
   const [renamePending, setRenamePending] = useState(false)
 
-  function addChurch() {
+  async function addChurch() {
     const t = draft.trim()
     if (!t || churches.includes(t)) return
-    setChurches([...churches, t])
+    const next = [...churches, t]
+    setChurches(next)
     setDraft('')
+    setSaving(true)
+    setError(null)
+    const res = await updateGlobalChurches(next)
+    setSaving(false)
+    if (res.error) { setError(res.error); return }
+    setSavedMsg(true)
+    setTimeout(() => setSavedMsg(false), 2000)
   }
 
-  function removeChurch(i: number) {
-    setChurches(churches.filter((_, j) => j !== i))
+  async function removeChurch(i: number) {
+    const next = churches.filter((_, j) => j !== i)
+    setChurches(next)
+    setSaving(true)
+    setError(null)
+    const res = await updateGlobalChurches(next)
+    setSaving(false)
+    if (res.error) { setError(res.error); return }
+    setSavedMsg(true)
+    setTimeout(() => setSavedMsg(false), 2000)
   }
 
-  function move(from: number, to: number) {
+  async function move(from: number, to: number) {
     const next = [...churches]
     const [item] = next.splice(from, 1)
     next.splice(to, 0, item)
     setChurches(next)
+    setSaving(true)
+    setError(null)
+    const res = await updateGlobalChurches(next)
+    setSaving(false)
+    if (res.error) { setError(res.error); return }
+    setSavedMsg(true)
+    setTimeout(() => setSavedMsg(false), 2000)
   }
 
   function startEdit(i: number) {
@@ -63,16 +86,6 @@ export default function SettingsClient({ initialChurches }: Props) {
     cancelEdit()
   }
 
-  async function handleSave() {
-    setSaving(true)
-    setError(null)
-    const res = await updateGlobalChurches(churches)
-    setSaving(false)
-    if (res.error) { setError(res.error); return }
-    setSavedMsg(true)
-    setTimeout(() => setSavedMsg(false), 2000)
-  }
-
   return (
     <section className="space-y-4">
       <div className="flex items-center justify-between">
@@ -83,14 +96,9 @@ export default function SettingsClient({ initialChurches }: Props) {
             Changes apply to all events that haven&apos;t overridden their own options.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={saving}
-          className="shrink-0 rounded-btn bg-[#111111] px-4 py-1.5 text-xs font-medium text-white hover:opacity-80 disabled:opacity-40"
-        >
-          {saving ? 'Saving…' : savedMsg ? 'Saved ✓' : 'Save'}
-        </button>
+        {(saving || savedMsg) && (
+          <p className="text-xs text-muted">{saving ? 'Saving…' : 'Saved ✓'}</p>
+        )}
       </div>
 
       {error && (

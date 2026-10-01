@@ -3,7 +3,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { getCurrentStaffUser } from '@/lib/supabase/auth'
 import { getTransporter, FROM } from '@/lib/email/transporter'
-import { sendVerifiedEmail } from '@/lib/email'
 import { revalidatePath } from 'next/cache'
 import { qrCodeUrl } from '@/lib/email'
 import { formatDateRange, formatCurrency } from '@/lib/utils'
@@ -281,69 +280,6 @@ export async function continueEmailBlast(
     return { sent, failed, queued: remainingEmails.length }
   } catch (e: any) {
     return { sent: 0, failed: 0, queued: 0, error: e.message }
-  }
-}
-
-// ── Resend QR codes ───────────────────────────────────────────
-export async function resendQRCodes(
-  eventId: string
-): Promise<{ sent: number; failed: number; error?: string }> {
-  try {
-    await requireAdminOrAbove()
-    const supabase = createServiceClient()
-
-    let query = supabase
-      .from('registrations')
-      .select(
-        `full_name, email, gms_church, nij, qr_token, amount_paid, is_early_bird,
-         packages(name, price, toolkit_items),
-         events(name, date, end_date, location, currency, early_bird_enabled, early_bird_auto_change, early_bird_end_date)`
-      )
-      .eq('payment_status', 'verified')
-
-    if (eventId !== 'all') query = query.eq('event_id', eventId)
-
-    const { data, error } = await query
-    if (error) return { sent: 0, failed: 0, error: error.message }
-
-    const rows = data ?? []
-    if (rows.length === 0) return { sent: 0, failed: 0, error: 'No verified registrations found for this event' }
-
-    // QR generation is memory-heavy — process in small batches
-    const BATCH = 5
-    let sent = 0
-    let failed = 0
-
-    for (let i = 0; i < rows.length; i += BATCH) {
-      const batch = rows.slice(i, i + BATCH)
-      await Promise.all(
-        batch.map(async (reg) => {
-          try {
-            await sendVerifiedEmail(
-              {
-                full_name: reg.full_name,
-                email:     reg.email,
-                gms_church: reg.gms_church,
-                nij:       reg.nij,
-                qr_token:  reg.qr_token,
-              },
-              reg.packages as any,
-              reg.events   as any,
-              reg.amount_paid != null
-                ? { amount_paid: Number(reg.amount_paid), is_early_bird: reg.is_early_bird }
-                : undefined
-            )
-            sent++
-          } catch {
-            failed++
-          }
-        })
-      )
-    }
-
-    return { sent, failed }
-  } catch (e: any) {
-    return { sent: 0, failed: 0, error: e.message }
   }
 }
 

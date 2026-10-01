@@ -45,6 +45,7 @@ interface Props {
   onUpdate: (id: string, updates: Partial<DrawerRegistration>) => void
   onDelete: (id: string) => void
   staffRole: StaffRole
+  churches?: string[]
 }
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
@@ -66,7 +67,7 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
   )
 }
 
-export default function RegistrantDrawer({ registration, onClose, onUpdate, onDelete, staffRole }: Props) {
+export default function RegistrantDrawer({ registration, onClose, onUpdate, onDelete, staffRole, churches = GMS_CHURCHES as unknown as string[] }: Props) {
   const isOpen = !!registration
   const canEdit = ['super_admin', 'admin'].includes(staffRole)
 
@@ -281,7 +282,7 @@ export default function RegistrantDrawer({ registration, onClose, onUpdate, onDe
                     <div>
                       <Label htmlFor="edit_church" required>Church</Label>
                       <Select id="edit_church" value={editChurch} onChange={(e) => setEditChurch(e.target.value)}>
-                        {GMS_CHURCHES.map((c) => <option key={c} value={c}>{c}</option>)}
+                        {churches.map((c) => <option key={c} value={c}>{c}</option>)}
                       </Select>
                     </div>
                     <div>

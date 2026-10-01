@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentStaffUser } from '@/lib/supabase/auth'
+import { getGlobalChurches } from '@/app/dashboard/settings/actions'
 import StatCards from '@/components/dashboard/StatCards'
 import SearchFilters from '@/components/dashboard/registrations/SearchFilters'
 import RegistrationsClient from '@/components/dashboard/registrations/RegistrationsClient'
@@ -124,9 +125,12 @@ export default async function RegistrationsPage({
   const offset = (page - 1) * PAGE_SIZE
 
   // Packages for walk-in drawer + package filter options
-  const { data: packagesData } = filterEventId
-    ? await supabase.from('packages').select('*').eq('event_id', filterEventId).order('price', { ascending: false })
-    : { data: [] }
+  const [{ data: packagesData }, dynamicChurches] = await Promise.all([
+    filterEventId
+      ? supabase.from('packages').select('*').eq('event_id', filterEventId).order('price', { ascending: false })
+      : Promise.resolve({ data: [] }),
+    getGlobalChurches(),
+  ])
   const packages = (packagesData ?? []) as Package[]
 
   let eventPricing: {
@@ -241,6 +245,7 @@ export default async function RegistrationsPage({
                 eventId={filterEventId}
                 packages={packages}
                 eventPricing={eventPricing}
+                churches={dynamicChurches}
               />
             )}
           </div>
@@ -269,6 +274,7 @@ export default async function RegistrationsPage({
             packages={packages.map((p) => ({ id: p.id, name: p.name }))}
             allergiesFieldId={allergiesFieldId}
             allergiesLabel={allergiesLabel}
+            churches={dynamicChurches}
           />
         </Suspense>
 
@@ -296,6 +302,7 @@ export default async function RegistrationsPage({
             pageSize={PAGE_SIZE}
             staffRole={staff?.role ?? 'scanner'}
             showEventColumn={showEventColumn}
+            churches={dynamicChurches}
           />
         </Suspense>
       </div>

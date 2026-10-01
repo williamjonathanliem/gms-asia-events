@@ -13,9 +13,10 @@ interface Props {
   eventId: string
   packages: Package[]
   eventPricing: EventPricing | null
+  churches?: string[]
 }
 
-export default function WalkinDrawerWrapper({ eventId, packages, eventPricing }: Props) {
+export default function WalkinDrawerWrapper({ eventId, packages, eventPricing, churches }: Props) {
   const [open, setOpen] = useState(false)
 
   return (
@@ -36,6 +37,7 @@ export default function WalkinDrawerWrapper({ eventId, packages, eventPricing }:
           packages={packages}
           eventPricing={eventPricing}
           onClose={() => setOpen(false)}
+          churches={churches}
         />
       )}
     </>

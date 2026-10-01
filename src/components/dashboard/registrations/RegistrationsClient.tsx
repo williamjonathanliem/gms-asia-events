@@ -15,6 +15,7 @@ interface Props {
   staffRole: StaffRole
   /** When true, show which event each row belongs to (cross-event list) */
   showEventColumn?: boolean
+  churches?: string[]
 }
 
 function CheckIcon({ checked }: { checked: boolean }) {
@@ -32,6 +33,7 @@ export default function RegistrationsClient({
   pageSize,
   staffRole,
   showEventColumn = false,
+  churches,
 }: Props) {
   const [rows, setRows] = useState<DrawerRegistration[]>(initial)
   const [selected, setSelected] = useState<DrawerRegistration | null>(null)
@@ -180,6 +182,7 @@ export default function RegistrationsClient({
         onUpdate={handleUpdate}
         onDelete={handleDelete}
         staffRole={staffRole}
+        churches={churches}
       />
     </>
   )
