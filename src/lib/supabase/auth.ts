@@ -1,7 +1,10 @@
+import { cache } from 'react'
 import { createClient } from './server'
 import type { StaffUser } from '@/lib/types/database'
 
-export async function getCurrentStaffUser(): Promise<StaffUser | null> {
+// cache() deduplicates across a single request — auth runs once even if called by
+// multiple server components (layout, page, StatCards, etc.)
+export const getCurrentStaffUser = cache(async (): Promise<StaffUser | null> => {
   const supabase = createClient()
 
   const {
@@ -17,4 +20,4 @@ export async function getCurrentStaffUser(): Promise<StaffUser | null> {
     .single()
 
   return data ?? null
-}
+})

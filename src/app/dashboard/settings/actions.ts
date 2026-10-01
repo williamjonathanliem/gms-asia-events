@@ -2,22 +2,26 @@
 
 import { createServiceClient } from '@/lib/supabase/server'
 import { getCurrentStaffUser } from '@/lib/supabase/auth'
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag, unstable_cache } from 'next/cache'
 
 async function requireSuperAdmin() {
   const staff = await getCurrentStaffUser()
   if (staff?.role !== 'super_admin') throw new Error('Unauthorised')
 }
 
-export async function getGlobalChurches(): Promise<string[]> {
-  const supabase = createServiceClient()
-  const { data } = await supabase
-    .from('settings')
-    .select('value')
-    .eq('key', 'gms_churches')
-    .single()
-  return (data?.value as string[]) ?? []
-}
+export const getGlobalChurches = unstable_cache(
+  async (): Promise<string[]> => {
+    const supabase = createServiceClient()
+    const { data } = await supabase
+      .from('settings')
+      .select('value')
+      .eq('key', 'gms_churches')
+      .single()
+    return (data?.value as string[]) ?? []
+  },
+  ['global-churches'],
+  { tags: ['global-churches'], revalidate: 3600 }
+)
 
 export async function updateGlobalChurches(
   churches: string[]
@@ -29,6 +33,7 @@ export async function updateGlobalChurches(
       .from('settings')
       .upsert({ key: 'gms_churches', value: churches, updated_at: new Date().toISOString() })
     if (error) return { error: error.message }
+    revalidateTag('global-churches')
     revalidatePath('/dashboard/settings')
     revalidatePath('/dashboard/events')
     return {}

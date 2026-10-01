@@ -44,17 +44,8 @@ export default async function RegistrationsPage({
   const staff = await getCurrentStaffUser()
   const scopedEventId = staff?.event_scope ?? null
 
-  // ── Events list (event picker for staff without event_scope) ──
-  let eventsForPicker: { id: string; name: string; date: string; end_date: string | null }[] = []
-  if (!scopedEventId) {
-    const { data: evs } = await supabase
-      .from('events')
-      .select('id, name, date, end_date')
-      .order('date', { ascending: false })
-    eventsForPicker = (evs ?? []) as { id: string; name: string; date: string; end_date: string | null }[]
-  }
-
-  // ── Resolve active event (default filter for unscoped staff) ──
+  // ── Events — one query covers both the picker and the active-event lookup ──
+  let eventsForPicker: { id: string; name: string; date: string; end_date: string | null; is_active: boolean }[] = []
   let activeEventId: string | null = null
   let activeEventName = ''
   let activeEventDate = ''
@@ -63,7 +54,7 @@ export default async function RegistrationsPage({
   if (scopedEventId) {
     const { data } = await supabase
       .from('events')
-      .select('id, name, date, end_date')
+      .select('id, name, date, end_date, is_active')
       .eq('id', scopedEventId)
       .single()
     activeEventId = data?.id ?? null
@@ -71,13 +62,12 @@ export default async function RegistrationsPage({
     activeEventDate = data?.date ?? ''
     activeEventEndDate = data?.end_date ?? null
   } else {
-    const { data: activeEvents } = await supabase
+    const { data: evs } = await supabase
       .from('events')
-      .select('id, name, date, end_date')
-      .eq('is_active', true)
+      .select('id, name, date, end_date, is_active')
       .order('date', { ascending: false })
-      .limit(1)
-    const activeEvent = activeEvents?.[0] ?? null
+    eventsForPicker = (evs ?? []) as typeof eventsForPicker
+    const activeEvent = eventsForPicker.find((e) => e.is_active) ?? null
     activeEventId = activeEvent?.id ?? null
     activeEventName = activeEvent?.name ?? ''
     activeEventDate = activeEvent?.date ?? ''
@@ -126,12 +116,15 @@ export default async function RegistrationsPage({
   const page = Math.max(1, Number(searchParams.page ?? 1))
   const offset = (page - 1) * PAGE_SIZE
 
-  // Packages for walk-in drawer + package filter options
-  const [{ data: packagesData }, dynamicChurches] = await Promise.all([
+  // Packages, churches, and event pricing all run in parallel
+  const [{ data: packagesData }, dynamicChurches, { data: evPricingData }] = await Promise.all([
     filterEventId
       ? supabase.from('packages').select('*').eq('event_id', filterEventId).order('price', { ascending: false })
-      : Promise.resolve({ data: [] }),
+      : Promise.resolve({ data: [] as Package[] }),
     getGlobalChurches(),
+    filterEventId
+      ? supabase.from('events').select('currency, early_bird_enabled, early_bird_auto_change, early_bird_end_date, custom_fields').eq('id', filterEventId).single()
+      : Promise.resolve({ data: null }),
   ])
   const packages = (packagesData ?? []) as Package[]
 
@@ -140,20 +133,12 @@ export default async function RegistrationsPage({
     early_bird_enabled: boolean
     early_bird_auto_change: boolean
     early_bird_end_date: string | null
-  } | null = null
+  } | null = evPricingData as any ?? null
+
   let allergiesFieldId: string | null = null
   let allergiesLabel = 'Dietary / Allergies'
-
-  if (filterEventId) {
-    const { data: evPricing } = await supabase
-      .from('events')
-      .select('currency, early_bird_enabled, early_bird_auto_change, early_bird_end_date, custom_fields')
-      .eq('id', filterEventId)
-      .single()
-    eventPricing = evPricing as any
-
-    // Find the allergies / dietary custom field for this event (if any)
-    const evCustomFields = (((evPricing as any)?.custom_fields) ?? []) as CustomField[]
+  if (evPricingData) {
+    const evCustomFields = (((evPricingData as any)?.custom_fields) ?? []) as CustomField[]
     const allergiesField = evCustomFields.find((f) => /allerg|dietary|food/i.test(f.label))
     if (allergiesField) {
       allergiesFieldId = allergiesField.id
@@ -186,17 +171,23 @@ export default async function RegistrationsPage({
       .filter((r) => r.answer.trim() !== '')
   }
 
-  let query = supabase
-    .from('registrations')
-    .select(
-      `id, full_name, email, phone, gms_church, nij,
+  // Only join events when showing cross-event list — skipping it saves significant query time
+  const registrationsSelect = queryAllEvents
+    ? `id, full_name, email, phone, gms_church, nij,
        payment_method, payment_status, payment_notes, payment_screenshot_url, qr_token,
        amount_paid, is_early_bird, created_at, package_id, custom_answers,
        events(name, date, currency, custom_fields),
        packages(name, price, toolkit_items),
-       attendance_logs(scan_type, scanned_at)`,
-      { count: 'exact' }
-    )
+       attendance_logs(scan_type, scanned_at)`
+    : `id, full_name, email, phone, gms_church, nij,
+       payment_method, payment_status, payment_notes, payment_screenshot_url, qr_token,
+       amount_paid, is_early_bird, created_at, package_id, custom_answers,
+       packages(name, price, toolkit_items),
+       attendance_logs(scan_type, scanned_at)`
+
+  let query = supabase
+    .from('registrations')
+    .select(registrationsSelect, { count: 'exact' })
     .order('created_at', { ascending: false })
     .range(offset, offset + PAGE_SIZE - 1)
 
@@ -320,7 +311,18 @@ export default async function RegistrationsPage({
                 <span className="font-medium text-[#111111]">All events</span> to search across every registration.
               </p>
             ) : filterEventId ? (
-              <StatCards eventId={filterEventId} />
+              <Suspense fallback={
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  {[...Array(4)].map((_, i) => (
+                    <div key={i} className="rounded-lg border border-[#E5E5E5] px-5 py-4 animate-pulse">
+                      <div className="h-3 w-20 rounded bg-[#E5E5E5]" />
+                      <div className="mt-2 h-8 w-16 rounded bg-[#E5E5E5]" />
+                    </div>
+                  ))}
+                </div>
+              }>
+                <StatCards eventId={filterEventId} />
+              </Suspense>
             ) : (
               <p className="text-sm text-muted">No active event found.</p>
             )}

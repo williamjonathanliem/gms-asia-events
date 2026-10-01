@@ -3,7 +3,7 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { getCurrentStaffUser } from '@/lib/supabase/auth'
 import { sendVerifiedEmail, sendRejectionEmail } from '@/lib/email'
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
 import QRCode from 'qrcode'
 import { STORAGE_BUCKET } from '@/lib/constants'
 import type { PaymentStatus } from '@/lib/types/database'
@@ -259,4 +259,11 @@ export async function updateRegistration(
 
   revalidatePath('/dashboard/registrations')
   return {}
+}
+
+// Bust all caches used by the registrations page so the Refresh button
+// doesn't return stale unstable_cache data.
+export async function bustRegistrationsCache(): Promise<void> {
+  revalidateTag('global-churches')
+  revalidatePath('/dashboard/registrations')
 }

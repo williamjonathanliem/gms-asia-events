@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 import { Tooltip } from '@/components/ui/tooltip'
+import { bustRegistrationsCache } from '@/app/dashboard/registrations/actions'
 
 export default function RefreshButton() {
   const router = useRouter()
@@ -11,7 +12,8 @@ export default function RefreshButton() {
 
   function handleRefresh() {
     setSpun(true)
-    startTransition(() => {
+    startTransition(async () => {
+      await bustRegistrationsCache()
       router.refresh()
     })
     setTimeout(() => setSpun(false), 600)
