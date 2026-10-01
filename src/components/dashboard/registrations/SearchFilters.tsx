@@ -68,12 +68,11 @@ export default function SearchFilters({
     (searchParams.get('payment')   ? 1 : 0) +
     (searchParams.get('location')  ? 1 : 0) +
     (searchParams.get('package')   ? 1 : 0) +
-    (searchParams.get('church')    ? 1 : 0) +
+    (searchParams.get('status')    ? 1 : 0) +
     (searchParams.get('allergies') ? 1 : 0)
 
-  const hasSecondary = secondaryCount > 0
-  const [showMore, setShowMore] = useState(hasSecondary)
-  useEffect(() => { if (hasSecondary) setShowMore(true) }, [hasSecondary])
+  const [showMore, setShowMore] = useState(secondaryCount > 0)
+  useEffect(() => { if (secondaryCount > 0) setShowMore(true) }, [secondaryCount])
 
   const push = useCallback(
     (params: URLSearchParams) => {
@@ -142,10 +141,10 @@ export default function SearchFilters({
 
   const clearSecondary = () => {
     const params = new URLSearchParams(searchParams.toString())
+    params.delete('status')
     params.delete('payment')
     params.delete('location')
     params.delete('package')
-    params.delete('church')
     params.delete('allergies')
     params.delete('page')
     push(params)
@@ -154,39 +153,34 @@ export default function SearchFilters({
   return (
     <div className={cn('space-y-2 transition-opacity', isPending && 'opacity-60')}>
 
-      {/* ── Primary row ── */}
+      {/* ── Primary row: event + search + church + filters toggle ── */}
       <div className="flex flex-wrap items-center gap-2">
-
         {!eventFilterLocked && eventsForPicker.length > 0 && (
-          <div className="w-full sm:w-auto sm:min-w-[180px] sm:max-w-[240px]">
-            <Combobox
-              options={eventOptions.map((o) => o.label)}
-              value={currentEventLabel}
-              onChange={handleEventChange}
-              placeholder="All events"
-              searchPlaceholder="Search events..."
-              className={cn(comboboxCls, 'w-full')}
-            />
-          </div>
+          <Combobox
+            options={eventOptions.map((o) => o.label)}
+            value={currentEventLabel}
+            onChange={handleEventChange}
+            placeholder="All events"
+            searchPlaceholder="Search events..."
+            className={cn(comboboxCls, 'w-full sm:w-auto sm:min-w-[170px] sm:max-w-[220px]')}
+          />
         )}
 
         <Input
           placeholder="Name, email, NIJ..."
           defaultValue={searchParams.get('search') ?? ''}
           onChange={(e) => handleSearch(e.target.value)}
-          className="w-full sm:w-48"
+          className="min-w-0 flex-1"
         />
 
-        <FSel
-          value={searchParams.get('status') ?? ''}
-          onValueChange={(v) => updateParam('status', v)}
-          className="w-full sm:w-32"
-        >
-          <SelectItem value="all">All statuses</SelectItem>
-          <SelectItem value="pending">Pending</SelectItem>
-          <SelectItem value="verified">Verified</SelectItem>
-          <SelectItem value="rejected">Rejected</SelectItem>
-        </FSel>
+        <Combobox
+          options={CHURCH_OPTIONS}
+          value={currentChurch}
+          onChange={handleChurchChange}
+          placeholder="All churches"
+          searchPlaceholder="Search churches..."
+          className={cn(comboboxCls, 'w-full sm:w-48')}
+        />
 
         <button
           type="button"
@@ -205,22 +199,30 @@ export default function SearchFilters({
         </button>
       </div>
 
-      {/* ── Secondary row ── */}
+      {/* ── Secondary row (toggle) ── */}
       {showMore && (
-        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-[#E5E5E5] bg-[#fafafa] px-3 py-2.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <FSel
+            value={searchParams.get('status') ?? ''}
+            onValueChange={(v) => updateParam('status', v)}
+            className="w-full sm:w-auto"
+          >
+            <SelectItem value="all">All statuses</SelectItem>
+            <SelectItem value="pending">Pending</SelectItem>
+            <SelectItem value="verified">Verified</SelectItem>
+            <SelectItem value="rejected">Rejected</SelectItem>
+          </FSel>
 
-          {/* Payment method */}
           <FSel
             value={searchParams.get('payment') ?? ''}
             onValueChange={(v) => updateParam('payment', v)}
             className="w-full sm:w-auto"
           >
             <SelectItem value="all">All payments</SelectItem>
-            <SelectItem value="manual">Bank Transfer</SelectItem>
+            <SelectItem value="manual">Bank transfer</SelectItem>
             <SelectItem value="stripe">Card (Stripe)</SelectItem>
           </FSel>
 
-          {/* Japan / International */}
           <FSel
             value={searchParams.get('location') ?? ''}
             onValueChange={(v) => updateParam('location', v)}
@@ -231,7 +233,6 @@ export default function SearchFilters({
             <SelectItem value="international">International</SelectItem>
           </FSel>
 
-          {/* Package */}
           {packages.length > 0 && (
             <FSel
               value={searchParams.get('package') ?? ''}
@@ -245,24 +246,13 @@ export default function SearchFilters({
             </FSel>
           )}
 
-          {/* Church */}
-          <Combobox
-            options={CHURCH_OPTIONS}
-            value={currentChurch}
-            onChange={handleChurchChange}
-            placeholder="All churches"
-            searchPlaceholder="Search churches..."
-            className={cn(comboboxCls, 'w-full sm:w-56')}
-          />
-
-          {/* Allergens */}
           {allergiesFieldId && (
             <FSel
               value={searchParams.get('allergies') ?? ''}
               onValueChange={(v) => updateParam('allergies', v)}
               className="w-full sm:w-auto"
             >
-              <SelectItem value="all">Allergens — All</SelectItem>
+              <SelectItem value="all">All allergens</SelectItem>
               <SelectItem value="yes">Has allergens</SelectItem>
               <SelectItem value="no">None</SelectItem>
             </FSel>
@@ -272,7 +262,7 @@ export default function SearchFilters({
             <button
               type="button"
               onClick={clearSecondary}
-              className="text-xs text-muted hover:text-error transition-colors ml-auto"
+              className="text-xs text-muted hover:text-error transition-colors ml-1"
             >
               Clear filters
             </button>
