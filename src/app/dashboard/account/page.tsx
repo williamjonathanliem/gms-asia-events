@@ -9,7 +9,6 @@ import { Label } from '@/components/ui/label'
 export default function AccountPage() {
   const supabase = createClient()
 
-  // ── Current user info ─────────────────────────────────────────
   const [email, setEmailDisplay] = useState('')
   const [displayName, setDisplayNameDisplay] = useState('')
 
@@ -80,30 +79,34 @@ export default function AccountPage() {
     setConfirmPassword('')
   }
 
+  const initial = email ? email.charAt(0).toUpperCase() : '?'
+
   return (
     <div className="min-h-screen">
       {/* Header */}
-      <div className="sticky top-14 lg:top-0 z-10 bg-white border-b border-[#E5E5E5] px-4 py-4 sm:px-8 sm:py-5">
-        <h1 className="text-xl font-semibold text-[#111111]">Account</h1>
+      <div className="sticky top-14 lg:top-0 z-10 bg-white border-b border-[#E5E5E5] px-6 py-4 sm:px-10 sm:py-5">
+        <h1 className="text-xl font-semibold text-[#111111]">Settings</h1>
         <p className="mt-0.5 text-sm text-muted">Manage your login credentials</p>
       </div>
 
-      <div className="mx-auto max-w-lg px-4 py-8 sm:px-8 space-y-6">
+      <div className="px-6 sm:px-10 py-8 max-w-5xl space-y-0">
 
-        {/* Current info */}
-        <div className="rounded-lg border border-[#E5E5E5] divide-y divide-[#E5E5E5]">
-          <div className="px-4 py-3 flex items-center justify-between">
-            <span className="text-xs font-medium uppercase tracking-widest text-muted">Email</span>
-            <span className="text-sm font-medium text-[#111111]">{email || '—'}</span>
+        {/* Profile summary — avatar + current info side by side */}
+        <div className="flex items-center gap-5 pb-8 border-b border-[#E5E5E5]">
+          <div className="flex size-14 shrink-0 items-center justify-center rounded-full bg-[#111111] text-xl font-semibold text-white select-none">
+            {initial}
           </div>
-          <div className="px-4 py-3 flex items-center justify-between">
-            <span className="text-xs font-medium uppercase tracking-widest text-muted">Display Name</span>
-            <span className="text-sm font-medium text-[#111111]">{displayName || '—'}</span>
+          <div>
+            <p className="text-base font-semibold text-[#111111]">{displayName || <span className="text-muted font-normal italic">No display name set</span>}</p>
+            <p className="text-sm text-muted mt-0.5">{email}</p>
           </div>
         </div>
 
-        {/* Display name */}
-        <Section title="Display Name" description="This name appears in your profile across the dashboard.">
+        {/* Display name row */}
+        <SettingsRow
+          title="Display Name"
+          description="Shown in your profile across the dashboard."
+        >
           <form onSubmit={handleChangeName} className="space-y-4">
             <Feedback error={nameError} success={nameSuccess ? 'Display name updated.' : null} />
             <div>
@@ -120,12 +123,15 @@ export default function AccountPage() {
               {nameLoading ? 'Saving…' : 'Update Name'}
             </Button>
           </form>
-        </Section>
+        </SettingsRow>
 
-        {/* Change email */}
-        <Section title="Email Address" description="After changing, you'll receive a confirmation link at your new address.">
+        {/* Email row */}
+        <SettingsRow
+          title="Email Address"
+          description="After changing, you'll receive a confirmation link at your new address."
+        >
           <form onSubmit={handleChangeEmail} className="space-y-4">
-            <Feedback error={emailError} success={emailSuccess ? 'Confirmation sent to your new email. Click the link to verify.' : null} />
+            <Feedback error={emailError} success={emailSuccess ? 'Confirmation sent. Click the link to verify.' : null} />
             <div>
               <Label htmlFor="new-email">New Email Address</Label>
               <Input
@@ -141,54 +147,72 @@ export default function AccountPage() {
               {emailLoading ? 'Sending…' : 'Update Email'}
             </Button>
           </form>
-        </Section>
+        </SettingsRow>
 
-        {/* Change password */}
-        <Section title="Password" description="Use a strong password of at least 6 characters.">
+        {/* Password row */}
+        <SettingsRow
+          title="Password"
+          description="Use a strong password of at least 6 characters."
+          last
+        >
           <form onSubmit={handleChangePassword} className="space-y-4">
             <Feedback error={pwError} success={pwSuccess ? 'Password updated successfully.' : null} />
-            <div>
-              <Label htmlFor="new-password">New Password</Label>
-              <Input
-                id="new-password"
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Min. 6 characters"
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="confirm-password">Confirm New Password</Label>
-              <Input
-                id="confirm-password"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Repeat your new password"
-                required
-              />
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <Label htmlFor="new-password">New Password</Label>
+                <Input
+                  id="new-password"
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Min. 6 characters"
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="confirm-password">Confirm Password</Label>
+                <Input
+                  id="confirm-password"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Repeat your new password"
+                  required
+                />
+              </div>
             </div>
             <Button type="submit" disabled={pwLoading}>
               {pwLoading ? 'Saving…' : 'Update Password'}
             </Button>
           </form>
-        </Section>
+        </SettingsRow>
 
       </div>
     </div>
   )
 }
 
-function Section({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
+function SettingsRow({
+  title,
+  description,
+  children,
+  last = false,
+}: {
+  title: string
+  description: string
+  children: React.ReactNode
+  last?: boolean
+}) {
   return (
-    <section className="rounded-lg border border-[#E5E5E5] p-6 space-y-4">
-      <div>
+    <div className={`grid grid-cols-1 gap-6 py-8 lg:grid-cols-[280px_1fr] ${!last ? 'border-b border-[#E5E5E5]' : ''}`}>
+      <div className="lg:pr-8">
         <h2 className="text-sm font-semibold text-[#111111]">{title}</h2>
-        <p className="mt-0.5 text-xs text-muted">{description}</p>
+        <p className="mt-1 text-sm text-muted leading-relaxed">{description}</p>
       </div>
-      {children}
-    </section>
+      <div className="max-w-md">
+        {children}
+      </div>
+    </div>
   )
 }
 

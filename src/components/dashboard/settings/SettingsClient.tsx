@@ -87,22 +87,19 @@ export default function SettingsClient({ initialChurches }: Props) {
   }
 
   return (
-    <section className="space-y-4">
+    <div className="space-y-5 max-w-xl">
+      {/* Header row */}
       <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-semibold text-[#111111]">GMS Church Branches</p>
-          <p className="mt-0.5 text-xs text-muted">
-            Default dropdown options for the Church Branch field on registration forms.
-            Changes apply to all events that haven&apos;t overridden their own options.
-          </p>
-        </div>
+        <p className="text-xs text-muted">
+          {churches.length} branch{churches.length !== 1 ? 'es' : ''}
+        </p>
         {(saving || savedMsg) && (
           <p className="text-xs text-muted">{saving ? 'Saving…' : 'Saved ✓'}</p>
         )}
       </div>
 
       {error && (
-        <p className="rounded-lg border border-error/30 bg-error/5 px-4 py-3 text-xs text-error">
+        <p className="rounded-lg border border-error/30 bg-error/5 px-4 py-3 text-sm text-error">
           {error}
         </p>
       )}
@@ -215,8 +212,8 @@ export default function SettingsClient({ initialChurches }: Props) {
       </div>
 
       <p className="text-xs text-muted">
-        {churches.length} branch{churches.length !== 1 ? 'es' : ''} · Reorder with the arrows, remove with the trash icon.
+        Reorder with the arrows · click the pencil to rename · trash to remove.
       </p>
-    </section>
+    </div>
   )
 }
