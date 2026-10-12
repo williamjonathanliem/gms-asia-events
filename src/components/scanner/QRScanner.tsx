@@ -41,6 +41,11 @@ function storeCamera(id: string | null) {
   } catch { /* storage blocked — the choice just won't persist */ }
 }
 
+// One short buzz for success, two longer ones for failure. Not available in iOS Safari.
+function vibrate(success: boolean) {
+  try { navigator.vibrate?.(success ? 80 : [180, 90, 180]) } catch { /* unsupported */ }
+}
+
 function playBeep(success: boolean) {
   try {
     const ctx = new AudioContext()
@@ -99,6 +104,7 @@ export default function QRScanner() {
     lastScanRef.current = { token: token.trim(), at: Date.now() }
 
     playBeep(res.success)
+    vibrate(res.success)
     setResult(res)
     setShowResult(true)
     setScanState(res.success ? 'success' : 'error')
