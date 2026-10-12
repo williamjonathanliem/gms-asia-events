@@ -2,11 +2,15 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 import Link from 'next/link'
-import { BrowserMultiFormatReader, type IScannerControls } from '@zxing/browser'
-import { NotFoundException } from '@zxing/library'
+import { BrowserQRCodeReader, type IScannerControls } from '@zxing/browser'
 import { processScan, type ScanMode, type ScanResponse } from '@/app/scan/actions'
 
 type ScanState = 'idle' | 'processing' | 'success' | 'error'
+
+const NEXT_SCAN_DELAY_MS = 1000
+const RESULT_CARD_MS = 2000
+// A code still in front of the camera would otherwise re-scan as "Already scanned".
+const SAME_CODE_IGNORE_MS = 4000
 
 function playBeep(success: boolean) {
   try {
@@ -28,6 +32,8 @@ export default function QRScanner() {
   const controlsRef = useRef<IScannerControls | null>(null)
   const processingRef = useRef(false)
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const unlockTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lastScanRef = useRef<{ token: string; at: number } | null>(null)
 
   const [mode, setMode] = useState<ScanMode>('toolkit')
   const modeRef = useRef<ScanMode>('toolkit') // stable ref for callback closure
@@ -48,6 +54,7 @@ export default function QRScanner() {
   const handleScanToken = useCallback(async (token: string) => {
     if (processingRef.current || !token.trim()) return
     processingRef.current = true
+    if (resetTimerRef.current) clearTimeout(resetTimerRef.current)
     setScanState('processing')
 
     let res: ScanResponse
@@ -56,6 +63,7 @@ export default function QRScanner() {
     } catch {
       res = { success: false, message: 'Connection error — check network' }
     }
+    lastScanRef.current = { token: token.trim(), at: Date.now() }
 
     playBeep(res.success)
     setFlashColor(res.success ? 'success' : 'error')
@@ -65,43 +73,46 @@ export default function QRScanner() {
     setScanState(res.success ? 'success' : 'error')
     if (res.success) setScanCount((c) => c + 1)
 
-    // Hide flash quickly, keep result card for 2 s
     setTimeout(() => setShowFlash(false), 600)
 
-    if (resetTimerRef.current) clearTimeout(resetTimerRef.current)
+    // The next scan is allowed before the result card goes away.
+    unlockTimerRef.current = setTimeout(() => {
+      processingRef.current = false
+    }, NEXT_SCAN_DELAY_MS)
+
     resetTimerRef.current = setTimeout(() => {
       setShowResult(false)
       setScanState('idle')
       setResult(null)
-      processingRef.current = false
-    }, 2000)
+    }, RESULT_CARD_MS)
   }, [])
 
   // ── Start camera ──────────────────────────────────────────────
   useEffect(() => {
     if (!videoRef.current) return
     let mounted = true
-    const reader = new BrowserMultiFormatReader()
+    // The library default waits 500 ms between attempts, which caps it at ~2 tries a second.
+    const reader = new BrowserQRCodeReader(undefined, { delayBetweenScanAttempts: 100 })
 
     ;(async () => {
       try {
-        // Request rear camera at the highest resolution the device supports
+        // 720p is plenty for a QR code; bigger frames only slow decoding. No `min`, so
+        // low-resolution laptop webcams still start.
         const controls = await reader.decodeFromConstraints(
           {
             video: {
               facingMode: { ideal: 'environment' },
-              width:  { ideal: 3840, min: 1280 },
-              height: { ideal: 2160, min: 720 },
-              aspectRatio: { ideal: 16 / 9 },
+              width:  { ideal: 1280 },
+              height: { ideal: 720 },
             },
           },
           videoRef.current!,
-          (result, err) => {
-            if (!mounted) return
-            if (result) handleScanToken(result.getText())
-            if (err && !(err instanceof NotFoundException)) {
-              // non-decode errors — ignore
-            }
+          (result) => {
+            if (!mounted || !result) return
+            const text = result.getText().trim()
+            const last = lastScanRef.current
+            if (last && last.token === text && Date.now() - last.at < SAME_CODE_IGNORE_MS) return
+            handleScanToken(text)
           }
         )
         if (mounted) controlsRef.current = controls
@@ -119,6 +130,7 @@ export default function QRScanner() {
       mounted = false
       controlsRef.current?.stop()
       if (resetTimerRef.current) clearTimeout(resetTimerRef.current)
+      if (unlockTimerRef.current) clearTimeout(unlockTimerRef.current)
     }
   }, [handleScanToken])
 

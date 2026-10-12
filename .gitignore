@@ -43,3 +43,8 @@ next-env.d.ts
 
 #Docs
 /docs
+
+#Claude
+/CLAUDE_BRIEF.md
+
+certificates

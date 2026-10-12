@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { cookies } from 'next/headers'
 
 interface SignInState {
   error?: string
@@ -22,6 +23,14 @@ export async function signIn(
   if (error) {
     return { error: error.message }
   }
+
+  cookies().set('last_activity', String(Date.now()), {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+    maxAge: 60 * 60 * 24 * 30,
+  })
 
   // Send scanners straight to the scanner — skip the dashboard entirely
   if (next === '/dashboard') {

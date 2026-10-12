@@ -3,6 +3,9 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import { getCurrentStaffUser } from '@/lib/supabase/auth'
 
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 export type ScanMode = 'toolkit' | 'event'
 
 export type ScanResponse =
@@ -13,23 +16,29 @@ export async function processScan(
   token: string,
   mode: ScanMode
 ): Promise<ScanResponse> {
-  const staff = await getCurrentStaffUser()
-  if (!staff || !['super_admin', 'admin', 'scanner'].includes(staff.role)) {
-    return { success: false, message: 'Unauthorised' }
+  const cleanToken = token?.trim()
+  // qr_token is a UUID column, so anything else can't match and isn't worth a query.
+  if (!cleanToken || !UUID_RE.test(cleanToken)) {
+    return { success: false, message: 'QR not found' }
   }
-
-  if (!token?.trim()) return { success: false, message: 'Invalid QR code' }
 
   const supabase = createServiceClient()
 
-  // ── 1. Find registration by qr_token ─────────────────────────
-  const { data: reg } = await supabase
-    .from('registrations')
-    .select(
-      'id, full_name, payment_status, event_id, packages(name, toolkit_items), events(is_active)'
-    )
-    .eq('qr_token', token.trim())
-    .maybeSingle()
+  // ── 1. Auth check and registration lookup run together ───────
+  const [staff, { data: reg }] = await Promise.all([
+    getCurrentStaffUser(),
+    supabase
+      .from('registrations')
+      .select(
+        'id, full_name, payment_status, event_id, packages(name, toolkit_items), events(is_active)'
+      )
+      .eq('qr_token', cleanToken)
+      .maybeSingle(),
+  ])
+
+  if (!staff || !['super_admin', 'admin', 'scanner'].includes(staff.role)) {
+    return { success: false, message: 'Unauthorised' }
+  }
 
   if (!reg) return { success: false, message: 'QR not found' }
 
@@ -42,17 +51,8 @@ export async function processScan(
     return { success: false, message: 'Payment not verified' }
   }
 
-  // ── 4. Duplicate scan check ───────────────────────────────────
-  const { data: existing } = await supabase
-    .from('attendance_logs')
-    .select('id')
-    .eq('registration_id', reg.id)
-    .eq('scan_type', mode)
-    .maybeSingle()
-
-  if (existing) return { success: false, message: 'Already scanned' }
-
-  // ── 5. Write log ──────────────────────────────────────────────
+  // ── 4. Write log ──────────────────────────────────────────────
+  // UNIQUE (registration_id, scan_type) rejects a repeat scan, so no separate lookup is needed.
   const { error } = await supabase.from('attendance_logs').insert({
     registration_id: reg.id,
     event_id: reg.event_id,

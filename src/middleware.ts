@@ -1,55 +1,10 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
-import { NextResponse, type NextRequest, type NextFetchEvent } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
 
-const SKIP_LOG = /^\/(api\/|_next\/|favicon|.*\.(ico|png|jpg|jpeg|svg|webp|css|js|woff2?))/
+const SESSION_MAX_AGE_MS = 3 * 60 * 60 * 1000
+const ACTIVITY_COOKIE = 'last_activity'
 
-function logAccess(
-  request: NextRequest,
-  user: { id: string; email?: string } | null,
-  status = 200
-): Promise<void> {
-  if (SKIP_LOG.test(request.nextUrl.pathname)) return Promise.resolve()
-
-  const ip =
-    (request as any).ip ??
-    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
-    request.headers.get('x-real-ip') ??
-    null
-
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  if (!serviceKey || !supabaseUrl) {
-    console.error('[access_log] Missing SUPABASE_SERVICE_ROLE_KEY or NEXT_PUBLIC_SUPABASE_URL')
-    return Promise.resolve()
-  }
-
-  return fetch(`${supabaseUrl}/rest/v1/access_logs`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'apikey': serviceKey,
-      'Authorization': `Bearer ${serviceKey}`,
-      'Prefer': 'return=minimal',
-    },
-    body: JSON.stringify({
-      path:        request.nextUrl.pathname + (request.nextUrl.search || ''),
-      method:      request.method,
-      ip,
-      country:     request.geo?.country ?? null,
-      user_agent:  request.headers.get('user-agent'),
-      referer:     request.headers.get('referer'),
-      staff_id:    user?.id ?? null,
-      staff_email: user?.email ?? null,
-      status,
-    }),
-  })
-    .then(async (res) => {
-      if (!res.ok) console.error('[access_log] Insert failed:', res.status, await res.text())
-    })
-    .catch((err) => console.error('[access_log] Fetch error:', err))
-}
-
-export async function middleware(request: NextRequest, event: NextFetchEvent) {
+export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
@@ -75,11 +30,31 @@ export async function middleware(request: NextRequest, event: NextFetchEvent) {
     }
   )
 
-  const {
+  let {
     data: { user },
   } = await supabase.auth.getUser()
 
   const { pathname } = request.nextUrl
+
+  // Idle timeout: refresh tokens are long-lived, so track last activity ourselves.
+  let sessionExpired = false
+  if (user) {
+    const last = Number(request.cookies.get(ACTIVITY_COOKIE)?.value)
+    if (last && Date.now() - last > SESSION_MAX_AGE_MS) {
+      await supabase.auth.signOut()
+      user = null
+      sessionExpired = true
+      supabaseResponse.cookies.delete(ACTIVITY_COOKIE)
+    } else {
+      supabaseResponse.cookies.set(ACTIVITY_COOKIE, String(Date.now()), {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        path: '/',
+        maxAge: 60 * 60 * 24 * 30,
+      })
+    }
+  }
 
   const isProtected =
     pathname.startsWith('/dashboard') || pathname.startsWith('/scan')
@@ -88,18 +63,18 @@ export async function middleware(request: NextRequest, event: NextFetchEvent) {
     const loginUrl = request.nextUrl.clone()
     loginUrl.pathname = '/auth/login'
     loginUrl.searchParams.set('next', pathname)
-    event.waitUntil(logAccess(request, null, 302))
-    return NextResponse.redirect(loginUrl)
+    if (sessionExpired) loginUrl.searchParams.set('expired', '1')
+    const redirectRes = NextResponse.redirect(loginUrl)
+    supabaseResponse.cookies.getAll().forEach((c) => redirectRes.cookies.set(c))
+    return redirectRes
   }
 
   if (pathname === '/auth/login' && user) {
     const dashboardUrl = request.nextUrl.clone()
     dashboardUrl.pathname = '/dashboard'
-    event.waitUntil(logAccess(request, user, 302))
     return NextResponse.redirect(dashboardUrl)
   }
 
-  event.waitUntil(logAccess(request, user))
   return supabaseResponse
 }
 
