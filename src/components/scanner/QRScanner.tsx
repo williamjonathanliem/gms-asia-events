@@ -12,6 +12,35 @@ const RESULT_CARD_MS = 2000
 // A code still in front of the camera would otherwise re-scan as "Already scanned".
 const SAME_CODE_IGNORE_MS = 4000
 
+const CAMERA_STORAGE_KEY = 'scanner_camera_id'
+const PREFERRED_ZOOM = 2
+
+type NativeDetector = { detect(source: HTMLVideoElement): Promise<{ rawValue: string }[]> }
+
+// The browser's built-in detector (Chromium on Android) copes with blur and glare far
+// better than the JS decoder; browsers without it fall back to zxing.
+async function createNativeDetector(): Promise<NativeDetector | null> {
+  const Ctor = (window as any).BarcodeDetector
+  if (!Ctor) return null
+  try {
+    const formats: string[] = await Ctor.getSupportedFormats()
+    return formats.includes('qr_code') ? new Ctor({ formats: ['qr_code'] }) : null
+  } catch {
+    return null
+  }
+}
+
+function readStoredCamera(): string | null {
+  try { return localStorage.getItem(CAMERA_STORAGE_KEY) } catch { return null }
+}
+
+function storeCamera(id: string | null) {
+  try {
+    if (id) localStorage.setItem(CAMERA_STORAGE_KEY, id)
+    else localStorage.removeItem(CAMERA_STORAGE_KEY)
+  } catch { /* storage blocked — the choice just won't persist */ }
+}
+
 function playBeep(success: boolean) {
   try {
     const ctx = new AudioContext()
@@ -29,8 +58,14 @@ function playBeep(success: boolean) {
 
 export default function QRScanner() {
   const videoRef = useRef<HTMLVideoElement>(null)
-  const controlsRef = useRef<IScannerControls | null>(null)
   const processingRef = useRef(false)
+  const zoomedRef = useRef(true)
+
+  const [cameraId, setCameraId] = useState<string | null>(readStoredCamera)
+  const [cameras, setCameras] = useState<string[]>([])
+  const [activeCamera, setActiveCamera] = useState<string | null>(null)
+  const [zoomRange, setZoomRange] = useState<{ min: number; max: number } | null>(null)
+  const [zoomed, setZoomed] = useState(true)
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const unlockTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastScanRef = useRef<{ token: string; at: number } | null>(null)
@@ -89,35 +124,87 @@ export default function QRScanner() {
 
   // ── Start camera ──────────────────────────────────────────────
   useEffect(() => {
-    if (!videoRef.current) return
-    let mounted = true
-    // The library default waits 500 ms between attempts, which caps it at ~2 tries a second.
-    const reader = new BrowserQRCodeReader(undefined, { delayBetweenScanAttempts: 100 })
+    const video = videoRef.current
+    if (!video) return
+    let stopped = false
+    let stream: MediaStream | null = null
+    let zxingControls: IScannerControls | null = null
+    let loopTimer: ReturnType<typeof setTimeout> | null = null
+
+    const onCode = (raw: string) => {
+      const text = raw.trim()
+      const last = lastScanRef.current
+      if (last && last.token === text && Date.now() - last.at < SAME_CODE_IGNORE_MS) return
+      handleScanToken(text)
+    }
 
     ;(async () => {
       try {
-        // 720p is plenty for a QR code; bigger frames only slow decoding. No `min`, so
-        // low-resolution laptop webcams still start.
-        const controls = await reader.decodeFromConstraints(
-          {
-            video: {
-              facingMode: { ideal: 'environment' },
-              width:  { ideal: 1280 },
-              height: { ideal: 720 },
-            },
+        const detector = await createNativeDetector()
+        // The native detector is cheap at 1080p; the JS decoder gets slow above 720p.
+        // No `min`, so low-resolution laptop webcams still start.
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            ...(cameraId
+              ? { deviceId: { exact: cameraId } }
+              : { facingMode: { ideal: 'environment' } }),
+            width:  { ideal: detector ? 1920 : 1280 },
+            height: { ideal: detector ? 1080 : 720 },
           },
-          videoRef.current!,
-          (result) => {
-            if (!mounted || !result) return
-            const text = result.getText().trim()
-            const last = lastScanRef.current
-            if (last && last.token === text && Date.now() - last.at < SAME_CODE_IGNORE_MS) return
-            handleScanToken(text)
+        })
+        if (stopped) { stream.getTracks().forEach((t) => t.stop()); return }
+
+        const track = stream.getVideoTracks()[0]
+        const caps = (track.getCapabilities?.() ?? {}) as any
+        const advanced: Record<string, unknown>[] = []
+        if (caps.focusMode?.includes?.('continuous')) advanced.push({ focusMode: 'continuous' })
+        if (caps.zoom && caps.zoom.max > caps.zoom.min) {
+          setZoomRange({ min: caps.zoom.min, max: caps.zoom.max })
+          if (zoomedRef.current) advanced.push({ zoom: Math.min(PREFERRED_ZOOM, caps.zoom.max) })
+        } else {
+          setZoomRange(null)
+        }
+        if (advanced.length) {
+          await track.applyConstraints({ advanced } as MediaTrackConstraints).catch(() => {})
+        }
+
+        const inputs = (await navigator.mediaDevices.enumerateDevices())
+          .filter((d) => d.kind === 'videoinput')
+        const rear = inputs.filter((d) => /back|rear|environment/i.test(d.label))
+        setCameras((rear.length ? rear : inputs).map((d) => d.deviceId))
+        setActiveCamera(track.getSettings().deviceId ?? null)
+        setTorchOn(false)
+
+        if (detector) {
+          video.srcObject = stream
+          await video.play()
+          const tick = async () => {
+            if (stopped) return
+            if (video.readyState >= 2 && !processingRef.current) {
+              try {
+                const codes = await detector.detect(video)
+                if (codes[0]?.rawValue) onCode(codes[0].rawValue)
+              } catch { /* a frame that can't be read is just skipped */ }
+            }
+            loopTimer = setTimeout(tick, 80)
           }
-        )
-        if (mounted) controlsRef.current = controls
+          tick()
+        } else {
+          // The library default waits 500 ms between attempts, which caps it at ~2 tries a second.
+          const reader = new BrowserQRCodeReader(undefined, { delayBetweenScanAttempts: 100 })
+          zxingControls = await reader.decodeFromStream(stream, video, (result) => {
+            if (!stopped && result) onCode(result.getText())
+          })
+          if (stopped) zxingControls.stop()
+        }
       } catch (err: any) {
-        if (!mounted) return
+        if (stopped) return
+        // A remembered camera that no longer exists: forget it and start with the default.
+        if (cameraId && ['OverconstrainedError', 'NotFoundError'].includes(err?.name)) {
+          storeCamera(null)
+          setCameraId(null)
+          return
+        }
         setCameraError(
           err?.name === 'NotAllowedError'
             ? 'Camera permission denied. Enable camera access and refresh.'
@@ -127,22 +214,50 @@ export default function QRScanner() {
     })()
 
     return () => {
-      mounted = false
-      controlsRef.current?.stop()
-      if (resetTimerRef.current) clearTimeout(resetTimerRef.current)
-      if (unlockTimerRef.current) clearTimeout(unlockTimerRef.current)
+      stopped = true
+      if (loopTimer) clearTimeout(loopTimer)
+      zxingControls?.stop()
+      stream?.getTracks().forEach((t) => t.stop())
+      video.srcObject = null
     }
-  }, [handleScanToken])
+  }, [handleScanToken, cameraId])
+
+  useEffect(() => () => {
+    if (resetTimerRef.current) clearTimeout(resetTimerRef.current)
+    if (unlockTimerRef.current) clearTimeout(unlockTimerRef.current)
+  }, [])
+
+  const currentTrack = () =>
+    (videoRef.current?.srcObject as MediaStream | null)?.getVideoTracks()[0] ?? null
 
   // ── Torch toggle ──────────────────────────────────────────────
   const toggleTorch = async () => {
-    const stream = videoRef.current?.srcObject as MediaStream | null
-    const track = stream?.getVideoTracks()[0]
+    const track = currentTrack()
     if (!track) return
     try {
       await track.applyConstraints({ advanced: [{ torch: !torchOn } as MediaTrackConstraintSet] })
       setTorchOn((t) => !t)
     } catch { /* torch not supported on this device */ }
+  }
+
+  const toggleZoom = async () => {
+    const track = currentTrack()
+    if (!track || !zoomRange) return
+    const next = !zoomed
+    const zoom = next ? Math.min(PREFERRED_ZOOM, zoomRange.max) : zoomRange.min
+    try {
+      await track.applyConstraints({ advanced: [{ zoom } as MediaTrackConstraintSet] })
+      zoomedRef.current = next
+      setZoomed(next)
+    } catch { /* zoom rejected by the device */ }
+  }
+
+  // Phones with several rear lenses sometimes hand the browser the wrong one.
+  const switchCamera = () => {
+    if (cameras.length < 2) return
+    const next = cameras[(cameras.indexOf(activeCamera ?? '') + 1) % cameras.length]
+    storeCamera(next)
+    setCameraId(next)
   }
 
   const handleManualSubmit = (e: React.FormEvent) => {
@@ -181,7 +296,7 @@ export default function QRScanner() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-black">
+    <div className="relative h-dvh overflow-hidden bg-black">
       {/* Camera feed */}
       <video
         ref={videoRef}
@@ -255,6 +370,34 @@ export default function QRScanner() {
           </svg>
         </button>
       </div>
+
+      {/* ── Camera controls ── */}
+      {(cameras.length > 1 || zoomRange) && (
+        <div className="absolute right-5 top-24 flex flex-col gap-2">
+          {cameras.length > 1 && (
+            <button
+              onClick={switchCamera}
+              aria-label="Switch camera"
+              className="rounded-full p-2.5 bg-black/40 text-white backdrop-blur-md hover:bg-black/60 transition-colors"
+            >
+              <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+              </svg>
+            </button>
+          )}
+          {zoomRange && (
+            <button
+              onClick={toggleZoom}
+              aria-label="Toggle zoom"
+              className={`size-10 rounded-full text-xs font-semibold backdrop-blur-md transition-colors ${
+                zoomed ? 'bg-white text-black' : 'bg-black/40 text-white hover:bg-black/60'
+              }`}
+            >
+              {zoomed ? '2x' : '1x'}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* ── Processing spinner ── */}
       {scanState === 'processing' && (
