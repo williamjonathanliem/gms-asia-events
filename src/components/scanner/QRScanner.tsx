@@ -71,6 +71,7 @@ export default function QRScanner() {
   const [activeCamera, setActiveCamera] = useState<string | null>(null)
   const [zoomRange, setZoomRange] = useState<{ min: number; max: number } | null>(null)
   const [zoomed, setZoomed] = useState(true)
+  const [mirrored, setMirrored] = useState(false)
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const unlockTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastScanRef = useRef<{ token: string; at: number } | null>(null)
@@ -179,9 +180,11 @@ export default function QRScanner() {
 
         const inputs = (await navigator.mediaDevices.enumerateDevices())
           .filter((d) => d.kind === 'videoinput')
-        const rear = inputs.filter((d) => /back|rear|environment/i.test(d.label))
-        setCameras((rear.length ? rear : inputs).map((d) => d.deviceId))
+        // Rear lenses first, then the front camera (for a phone on a stand facing attendees).
+        const isRear = (d: MediaDeviceInfo) => /back|rear|environment/i.test(d.label)
+        setCameras([...inputs.filter(isRear), ...inputs.filter((d) => !isRear(d))].map((d) => d.deviceId))
         setActiveCamera(track.getSettings().deviceId ?? null)
+        setMirrored(track.getSettings().facingMode === 'user')
         setTorchOn(false)
 
         if (detector) {
@@ -309,7 +312,7 @@ export default function QRScanner() {
       {/* Camera feed */}
       <video
         ref={videoRef}
-        className="absolute inset-0 h-full w-full object-cover"
+        className={`absolute inset-0 h-full w-full object-cover ${mirrored ? '-scale-x-100' : ''}`}
         playsInline
         muted
       />
