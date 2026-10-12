@@ -29,6 +29,8 @@ interface SearchParams {
   payment?: string     // 'manual' | 'stripe'
   location?: string    // 'japan' | 'international'
   allergies?: string   // 'yes' | 'no'
+  toolkit?: string     // 'yes' | 'no' — toolkit collected
+  checkin?: string     // 'yes' | 'no' — checked in to the event
   page?: string
   /** `all` or a specific event id; omitted = active event (unscoped staff only) */
   event?: string
@@ -185,11 +187,27 @@ export default async function RegistrationsPage({
        packages(name, price, toolkit_items),
        attendance_logs(scan_type, scanned_at)`
 
+  // Each scan filter adds its own aliased join on attendance_logs: an inner join keeps
+  // only people who have that scan, a null check on a left join keeps only those who don't.
+  const scanFilters = [
+    { value: searchParams.toolkit, alias: 'toolkit_log', scanType: 'toolkit' },
+    { value: searchParams.checkin, alias: 'checkin_log', scanType: 'event' },
+  ].filter((f) => f.value === 'yes' || f.value === 'no')
+
+  const scanSelect = scanFilters
+    .map((f) => `, ${f.alias}:attendance_logs${f.value === 'yes' ? '!inner' : ''}(id)`)
+    .join('')
+
   let query = supabase
     .from('registrations')
-    .select(registrationsSelect, { count: 'exact' })
+    .select(registrationsSelect + scanSelect, { count: 'exact' })
     .order('created_at', { ascending: false })
     .range(offset, offset + PAGE_SIZE - 1)
+
+  for (const f of scanFilters) {
+    query = query.eq(`${f.alias}.scan_type`, f.scanType)
+    if (f.value === 'no') query = query.is(f.alias, null)
+  }
 
   if (!queryAllEvents && filterEventId) {
     query = query.eq('event_id', filterEventId)
@@ -350,7 +368,9 @@ export default async function RegistrationsPage({
               searchParams.event ||
               searchParams.payment ||
               searchParams.location ||
-              searchParams.allergies
+              searchParams.allergies ||
+              searchParams.toolkit ||
+              searchParams.checkin
                 ? ' matching filters'
                 : ''}
             </p>

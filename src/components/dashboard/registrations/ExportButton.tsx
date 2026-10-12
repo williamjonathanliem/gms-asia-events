@@ -20,6 +20,8 @@ export default function ExportButton({ eventId }: Props) {
       status:  searchParams.get('status') ?? undefined,
       church:  searchParams.get('church') ?? undefined,
       package: searchParams.get('package') ?? undefined,
+      toolkit: searchParams.get('toolkit') ?? undefined,
+      checkin: searchParams.get('checkin') ?? undefined,
     })
     setLoading(false)
 

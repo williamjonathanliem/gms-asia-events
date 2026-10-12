@@ -69,7 +69,9 @@ export default function SearchFilters({
     (searchParams.get('location')  ? 1 : 0) +
     (searchParams.get('package')   ? 1 : 0) +
     (searchParams.get('status')    ? 1 : 0) +
-    (searchParams.get('allergies') ? 1 : 0)
+    (searchParams.get('allergies') ? 1 : 0) +
+    (searchParams.get('toolkit')   ? 1 : 0) +
+    (searchParams.get('checkin')   ? 1 : 0)
 
   const [showMore, setShowMore] = useState(secondaryCount > 0)
   useEffect(() => { if (secondaryCount > 0) setShowMore(true) }, [secondaryCount])
@@ -146,6 +148,8 @@ export default function SearchFilters({
     params.delete('location')
     params.delete('package')
     params.delete('allergies')
+    params.delete('toolkit')
+    params.delete('checkin')
     params.delete('page')
     push(params)
   }
@@ -257,6 +261,26 @@ export default function SearchFilters({
               <SelectItem value="no">None</SelectItem>
             </FSel>
           )}
+
+          <FSel
+            value={searchParams.get('toolkit') ?? ''}
+            onValueChange={(v) => updateParam('toolkit', v)}
+            className="w-full sm:w-auto"
+          >
+            <SelectItem value="all">Toolkit: all</SelectItem>
+            <SelectItem value="yes">Toolkit collected</SelectItem>
+            <SelectItem value="no">Toolkit not collected</SelectItem>
+          </FSel>
+
+          <FSel
+            value={searchParams.get('checkin') ?? ''}
+            onValueChange={(v) => updateParam('checkin', v)}
+            className="w-full sm:w-auto"
+          >
+            <SelectItem value="all">Check-in: all</SelectItem>
+            <SelectItem value="yes">Checked in</SelectItem>
+            <SelectItem value="no">Not checked in</SelectItem>
+          </FSel>
 
           {secondaryCount > 0 && (
             <button

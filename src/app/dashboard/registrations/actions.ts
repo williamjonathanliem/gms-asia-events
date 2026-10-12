@@ -15,6 +15,8 @@ export async function exportRegistrations(filters: {
   status?: string
   church?: string
   package?: string
+  toolkit?: string
+  checkin?: string
 }): Promise<{ csv?: string; error?: string }> {
   const staff = await getCurrentStaffUser()
   if (!staff) return { error: 'Unauthorised' }
@@ -44,12 +46,22 @@ export async function exportRegistrations(filters: {
   if (filters.status) query = query.eq('payment_status', filters.status as PaymentStatus)
   if (filters.church) query = query.eq('gms_church', filters.church)
 
+  if (filters.package) query = query.eq('package_id', filters.package)
+
   const { data, error } = await query
   if (error) return { error: error.message }
 
   let rows = (data ?? []) as any[]
-  if (filters.package) {
-    rows = rows.filter((r) => r.packages?.name === filters.package)
+  const scanFilters: [string | undefined, string][] = [
+    [filters.toolkit, 'toolkit'],
+    [filters.checkin, 'event'],
+  ]
+  for (const [value, scanType] of scanFilters) {
+    if (value !== 'yes' && value !== 'no') continue
+    rows = rows.filter(
+      (r) =>
+        (r.attendance_logs ?? []).some((l: any) => l.scan_type === scanType) === (value === 'yes')
+    )
   }
 
   const escape = (v: unknown) => {

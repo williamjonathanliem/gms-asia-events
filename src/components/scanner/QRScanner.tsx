@@ -8,7 +8,7 @@ import { processScan, type ScanMode, type ScanResponse } from '@/app/scan/action
 type ScanState = 'idle' | 'processing' | 'success' | 'error'
 
 const NEXT_SCAN_DELAY_MS = 1000
-const RESULT_CARD_MS = 2000
+const RESULT_CARD_MS = 2500
 // A code still in front of the camera would otherwise re-scan as "Already scanned".
 const SAME_CODE_IGNORE_MS = 4000
 
@@ -74,8 +74,6 @@ export default function QRScanner() {
   const modeRef = useRef<ScanMode>('toolkit') // stable ref for callback closure
 
   const [scanState, setScanState] = useState<ScanState>('idle')
-  const [flashColor, setFlashColor] = useState<'success' | 'error'>('success')
-  const [showFlash, setShowFlash] = useState(false)
   const [result, setResult] = useState<ScanResponse | null>(null)
   const [showResult, setShowResult] = useState(false)
   const [scanCount, setScanCount] = useState(0)
@@ -101,16 +99,12 @@ export default function QRScanner() {
     lastScanRef.current = { token: token.trim(), at: Date.now() }
 
     playBeep(res.success)
-    setFlashColor(res.success ? 'success' : 'error')
-    setShowFlash(true)
     setResult(res)
     setShowResult(true)
     setScanState(res.success ? 'success' : 'error')
     if (res.success) setScanCount((c) => c + 1)
 
-    setTimeout(() => setShowFlash(false), 600)
-
-    // The next scan is allowed before the result card goes away.
+    // The next scan is allowed before the result screen goes away.
     unlockTimerRef.current = setTimeout(() => {
       processingRef.current = false
     }, NEXT_SCAN_DELAY_MS)
@@ -121,6 +115,15 @@ export default function QRScanner() {
       setResult(null)
     }, RESULT_CARD_MS)
   }, [])
+
+  const dismissResult = () => {
+    if (resetTimerRef.current) clearTimeout(resetTimerRef.current)
+    if (unlockTimerRef.current) clearTimeout(unlockTimerRef.current)
+    processingRef.current = false
+    setShowResult(false)
+    setScanState('idle')
+    setResult(null)
+  }
 
   // ── Start camera ──────────────────────────────────────────────
   useEffect(() => {
@@ -308,15 +311,6 @@ export default function QRScanner() {
       {/* Ambient dark gradient so UI is readable */}
       <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-black/70 pointer-events-none" />
 
-      {/* Flash overlay */}
-      {showFlash && (
-        <div
-          className={`animate-flash pointer-events-none absolute inset-0 ${
-            flashColor === 'success' ? 'bg-success' : 'bg-error'
-          }`}
-        />
-      )}
-
       {/* ── Viewfinder ── */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
         <div className="relative size-60">
@@ -433,39 +427,47 @@ export default function QRScanner() {
         </form>
       </div>
 
-      {/* ── Result card (slides up) ── */}
-      <div
-        className={`absolute bottom-0 left-0 right-0 rounded-t-2xl bg-white px-6 pb-8 pt-5 transition-transform duration-300 ${
-          showResult ? 'translate-y-0' : 'translate-y-full'
-        } ${result?.success ? 'border-t-4 border-success' : 'border-t-4 border-error'}`}
-      >
-        {result?.success ? (
-          <>
-            <p className="text-xs font-semibold uppercase tracking-widest text-success">
-              {mode === 'toolkit' ? 'Toolkit Collected' : 'Checked In'} ✓
-            </p>
-            <p className="mt-1 text-3xl font-bold text-[#111111] leading-tight">{result.name}</p>
-            <p className="mt-1 text-sm text-muted">Package {result.packageName}</p>
-            {result.toolkitItems.length > 0 && (
-              <ul className="mt-3 space-y-1.5">
-                {result.toolkitItems.map((item, i) => (
-                  <li key={i} className="flex items-center gap-2 text-sm text-muted">
-                    <span className="size-1 shrink-0 rounded-full bg-success" />
-                    {item}
-                  </li>
-                ))}
-              </ul>
+      {/* ── Result: full-screen colour so it reads at a glance; tap to dismiss ── */}
+      {showResult && result && (
+        <button
+          type="button"
+          onClick={dismissResult}
+          className={`absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 px-6 text-center text-white ${
+            result.success ? 'bg-success' : 'bg-error'
+          }`}
+        >
+          <svg className="size-28" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            {result.success ? (
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            ) : (
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             )}
-          </>
-        ) : (
-          <>
-            <p className="text-lg font-semibold text-error">
-              {result?.message ?? 'Scan failed'}
+          </svg>
+
+          {result.success ? (
+            <>
+              <p className="text-base font-semibold uppercase tracking-widest text-white/85">
+                {mode === 'toolkit' ? 'Toolkit collected' : 'Checked in'}
+              </p>
+              <p className="max-w-full break-words text-5xl font-bold leading-tight">{result.name}</p>
+              <p className="text-xl font-medium text-white/90">{result.packageName}</p>
+              {mode === 'toolkit' && result.toolkitItems.length > 0 && (
+                <ul className="mt-2 max-w-sm space-y-1 text-sm text-white/85">
+                  {result.toolkitItems.map((item, i) => (
+                    <li key={i}>{item}</li>
+                  ))}
+                </ul>
+              )}
+            </>
+          ) : (
+            <p className="max-w-full break-words text-4xl font-bold leading-tight">
+              {result.message ?? 'Scan failed'}
             </p>
-            <p className="mt-1 text-sm text-muted">Please contact an administrator if this persists.</p>
-          </>
-        )}
-      </div>
+          )}
+
+          <span className="absolute bottom-8 text-xs text-white/70">Tap to dismiss</span>
+        </button>
+      )}
     </div>
   )
 }
