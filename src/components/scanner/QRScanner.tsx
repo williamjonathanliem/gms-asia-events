@@ -14,6 +14,7 @@ const SAME_CODE_IGNORE_MS = 4000
 
 const CAMERA_STORAGE_KEY = 'scanner_camera_id'
 const PREFERRED_ZOOM = 2
+const FRONT_CAMERA = 'front'
 
 type NativeDetector = { detect(source: HTMLVideoElement): Promise<{ rawValue: string }[]> }
 
@@ -155,9 +156,11 @@ export default function QRScanner() {
         // No `min`, so low-resolution laptop webcams still start.
         stream = await navigator.mediaDevices.getUserMedia({
           video: {
-            ...(cameraId
-              ? { deviceId: { exact: cameraId } }
-              : { facingMode: { ideal: 'environment' } }),
+            ...(cameraId === FRONT_CAMERA
+              ? { facingMode: { ideal: 'user' } }
+              : cameraId
+                ? { deviceId: { exact: cameraId } }
+                : { facingMode: { ideal: 'environment' } }),
             width:  { ideal: detector ? 1920 : 1280 },
             height: { ideal: detector ? 1080 : 720 },
           },
@@ -180,11 +183,19 @@ export default function QRScanner() {
 
         const inputs = (await navigator.mediaDevices.enumerateDevices())
           .filter((d) => d.kind === 'videoinput')
-        // Rear lenses first, then the front camera (for a phone on a stand facing attendees).
-        const isRear = (d: MediaDeviceInfo) => /back|rear|environment/i.test(d.label)
-        setCameras([...inputs.filter(isRear), ...inputs.filter((d) => !isRear(d))].map((d) => d.deviceId))
-        setActiveCamera(track.getSettings().deviceId ?? null)
-        setMirrored(track.getSettings().facingMode === 'user')
+        // Rear lenses by id, then one "front" entry requested by facing direction, so the
+        // front camera is reachable however the phone labels its cameras.
+        const rear = inputs.filter((d) => /back|rear|environment/i.test(d.label))
+        const isFront = cameraId === FRONT_CAMERA || track.getSettings().facingMode === 'user'
+        setCameras(
+          rear.length
+            ? [...rear.map((d) => d.deviceId), FRONT_CAMERA]
+            : inputs.map((d) => d.deviceId)
+        )
+        setActiveCamera(
+          cameraId === FRONT_CAMERA ? FRONT_CAMERA : track.getSettings().deviceId ?? null
+        )
+        setMirrored(isFront)
         setTorchOn(false)
 
         if (detector) {
